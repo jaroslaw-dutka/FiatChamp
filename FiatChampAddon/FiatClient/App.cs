@@ -62,12 +62,12 @@ namespace FiatChamp
 
                         if (_appConfig.AutoRefreshBattery)
                         {
-                            await TrySendCommand(_fiatClient, FiatCommand.DEEPREFRESH, vehicle.Vin);
+                            await TrySendCommand(_fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vin);
                         }
 
                         if (_appConfig.AutoRefreshLocation)
                         {
-                            await TrySendCommand(_fiatClient, FiatCommand.VF, vehicle.Vin);
+                            await TrySendCommand(_fiatClient, FiatCommands.VF, vehicle.Vin);
                         }
 
                         await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
@@ -264,49 +264,49 @@ namespace FiatChamp
         {
             var updateLocationButton = new HaButton(mqttClient, "UpdateLocation", haDevice, async button =>
             {
-                if (await TrySendCommand(fiatClient, FiatCommand.VF, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, FiatCommands.VF, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var batteryRefreshButton = new HaButton(mqttClient, "RefreshBatteryStatus", haDevice, async button =>
             {
-                if (await TrySendCommand(fiatClient, FiatCommand.DEEPREFRESH, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var deepRefreshButton = new HaButton(mqttClient, "DeepRefresh", haDevice, async button =>
             {
-                if (await TrySendCommand(fiatClient, FiatCommand.DEEPREFRESH, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var locateLightsButton = new HaButton(mqttClient, "Blink", haDevice, async button =>
             {
-                if (await TrySendCommand(fiatClient, FiatCommand.HBLF, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, FiatCommands.HBLF, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var chargeNowButton = new HaButton(mqttClient, "ChargeNOW", haDevice, async button =>
             {
-                if (await TrySendCommand(fiatClient, FiatCommand.CNOW, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, FiatCommands.CNOW, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var trunkSwitch = new HaSwitch(mqttClient, "Trunk", haDevice, async sw =>
             {
-                if (await TrySendCommand(fiatClient, sw.IsOn ? FiatCommand.ROTRUNKUNLOCK : FiatCommand.ROTRUNKLOCK, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, sw.IsOn ? FiatCommands.ROTRUNKUNLOCK : FiatCommands.ROTRUNKLOCK, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var hvacSwitch = new HaSwitch(mqttClient, "HVAC", haDevice, async sw =>
             {
-                if (await TrySendCommand(fiatClient, sw.IsOn ? FiatCommand.ROPRECOND : FiatCommand.ROPRECOND_OFF, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, sw.IsOn ? FiatCommands.ROPRECOND : FiatCommands.ROPRECOND_OFF, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
             var lockSwitch = new HaSwitch(mqttClient, "DoorLock", haDevice, async sw =>
             {
-                if (await TrySendCommand(fiatClient, sw.IsOn ? FiatCommand.RDL : FiatCommand.RDU, vehicle.Vin))
+                if (await TrySendCommand(fiatClient, sw.IsOn ? FiatCommands.RDL : FiatCommands.RDU, vehicle.Vin))
                     _forceLoopResetEvent.Set();
             });
 
