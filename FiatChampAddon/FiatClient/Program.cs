@@ -12,7 +12,10 @@ using Serilog.Events;
 
 var builder = CoconaApp.CreateBuilder();
 
-builder.Configuration.AddEnvironmentVariables("FiatChamp_");
+builder.Configuration
+    .AddEnvironmentVariables("FiatChamp_")
+    .AddJsonFile("appsettings.json")
+    .AddUserSecrets<Program>();
 
 //todo: integrate reports and events
 //todo: schedule turn charging off
