@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using FiatChamp.Fiat;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
