@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 
 namespace FiatChamp.Ha;
@@ -23,7 +24,6 @@ public class HaDeviceTracker : HaEntity
     public override async Task PublishState()
     {
         await _mqttClient.Pub(_stateTopic, $"{StateValue}");
-
         await _mqttClient.Pub(_attributesTopic, $$"""
                                                   {
                                                     "latitude": {{Lat}}, 
@@ -37,7 +37,7 @@ public class HaDeviceTracker : HaEntity
 
     public override async Task Announce()
     {
-        await _mqttClient.Pub(_configTopic, JsonSerializer.Serialize(new HaAnnouncement
+        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,
@@ -45,7 +45,7 @@ public class HaDeviceTracker : HaEntity
             UniqueId = _id,
             Platform = "mqtt",
             JsonAttributesTopic = _attributesTopic
-        }));
+        });
 
         await Task.Delay(200);
     }

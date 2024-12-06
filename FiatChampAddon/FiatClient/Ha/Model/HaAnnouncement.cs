@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace FiatChamp.Ha;
+namespace FiatChamp.Ha.Model;
 
 public class HaAnnouncement
 {

@@ -5,6 +5,7 @@ using CoordinateSharp;
 using FiatChamp;
 using FiatChamp.Fiat;
 using FiatChamp.Ha;
+using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 using Flurl.Http;
 using Microsoft.Extensions.Configuration;

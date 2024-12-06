@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-namespace FiatChamp.Ha;
+namespace FiatChamp.Ha.Model;
 
 public class HaRestApiUnitSystem
 {

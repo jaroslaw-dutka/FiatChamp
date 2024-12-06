@@ -1,3 +1,4 @@
+using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 
 namespace FiatChamp.Ha;

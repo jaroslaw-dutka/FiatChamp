@@ -1,4 +1,5 @@
 using CoordinateSharp;
+using FiatChamp.Ha.Model;
 using Flurl;
 using Flurl.Http;
 using Newtonsoft.Json.Linq;

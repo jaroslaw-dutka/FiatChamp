@@ -1,7 +1,7 @@
 using CoordinateSharp;
 using Newtonsoft.Json;
 
-namespace FiatChamp.Ha;
+namespace FiatChamp.Ha.Model;
 
 public class HaRestApiZone
 {
@@ -18,6 +18,6 @@ public class HaRestApiZone
     [JsonProperty("friendly_name")]
     public string FriendlyName { get; set; } = null!;
 
-    [JsonIgnore] 
+    [JsonIgnore]
     public Coordinate Coordinate => new Coordinate(Latitude, Longitude);
 }

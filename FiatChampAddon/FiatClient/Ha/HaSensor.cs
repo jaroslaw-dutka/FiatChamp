@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 
 namespace FiatChamp.Ha;
@@ -20,14 +21,12 @@ public class HaSensor : HaEntity
         _configTopic = $"homeassistant/sensor/{_id}/config";
     }
 
-    public override async Task PublishState()
-    {
+    public override async Task PublishState() => 
         await _mqttClient.Pub(_stateTopic, $"{Value}");
-    }
 
     public override async Task Announce()
     {
-        await _mqttClient.Pub(_configTopic, JsonSerializer.Serialize(new HaAnnouncement
+        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,
@@ -37,7 +36,7 @@ public class HaSensor : HaEntity
             StateTopic = _stateTopic,
             UniqueId = _id,
             Platform = "mqtt",
-        }));
+        });
 
         await Task.Delay(200);
     }

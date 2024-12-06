@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 
 namespace FiatChamp.Ha;
@@ -32,16 +33,11 @@ public class HaSwitch : HaEntity
         });
     }
 
-    public override async Task PublishState()
-    {
-        var mqttState = IsOn ? "ON" : "OFF";
+    public override async Task PublishState() => 
+        await _mqttClient.Pub(_stateTopic, IsOn ? "ON" : "OFF");
 
-        await _mqttClient.Pub(_stateTopic, $"{mqttState}");
-    }
-
-    public override async Task Announce()
-    {
-        await _mqttClient.Pub(_configTopic, JsonSerializer.Serialize(new HaAnnouncement
+    public override async Task Announce() =>
+        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,
@@ -49,6 +45,5 @@ public class HaSwitch : HaEntity
             StateTopic = _stateTopic,
             UniqueId = _id,
             Platform = "mqtt",
-        }));
-    }
+        });
 }

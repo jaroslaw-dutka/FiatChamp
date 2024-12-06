@@ -1,11 +1,11 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace FiatChamp.Ha;
+namespace FiatChamp.Ha.Model;
 
 public class HaRestApiEntityState
 {
-    [JsonProperty("entity_id")] 
+    [JsonProperty("entity_id")]
     public string EntityId { get; set; } = null!;
 
     public string State { get; set; } = null!;
