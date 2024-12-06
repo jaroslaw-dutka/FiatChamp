@@ -1,4 +1,3 @@
-using System.Text.Json;
 using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 
@@ -24,15 +23,13 @@ public class HaDeviceTracker : HaEntity
     public override async Task PublishState()
     {
         await _mqttClient.Pub(_stateTopic, $"{StateValue}");
-        await _mqttClient.Pub(_attributesTopic, $$"""
-                                                  {
-                                                    "latitude": {{Lat}}, 
-                                                    "longitude": {{Lon}},
-                                                    "source_type":"gps", 
-                                                    "gps_accuracy": 2
-                                                  }
-
-                                                  """);
+        await _mqttClient.PubJson(_attributesTopic, new HaLocation
+        {
+            Latitude = Lat,
+            Longitude = Lon,
+            SourceType = "gps",
+            GpsAccuracy = 2
+        });
     }
 
     public override async Task Announce()

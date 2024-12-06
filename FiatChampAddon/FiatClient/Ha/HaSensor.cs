@@ -1,4 +1,3 @@
-using System.Text.Json;
 using FiatChamp.Ha.Model;
 using FiatChamp.Mqtt;
 
