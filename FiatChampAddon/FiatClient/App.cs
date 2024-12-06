@@ -72,12 +72,11 @@ namespace FiatChamp
                         await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
 
                         var vehicleName = string.IsNullOrEmpty(vehicle.Nickname) ? "Car" : vehicle.Nickname;
-                        var suffix = _appConfig.DevMode ? "DEV" : "";
 
                         var haDevice = new HaDevice()
                         {
-                            Name = vehicleName + suffix,
-                            Identifiers = vehicle.Vin + suffix,
+                            Name = vehicleName,
+                            Identifiers = vehicle.Vin,
                             Manufacturer = vehicle.Make,
                             Model = vehicle.ModelDescription,
                             Version = "1.0"

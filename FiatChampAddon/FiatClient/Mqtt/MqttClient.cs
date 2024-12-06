@@ -21,7 +21,7 @@ public class MqttClient : IMqttClient
     {
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithCleanSession()
-            .WithClientId("FiatChamp")
+            .WithClientId(_config.ClientId)
             .WithTcpServer(_config.Server, _config.Port);
 
         if (string.IsNullOrWhiteSpace(_config.User) || string.IsNullOrWhiteSpace(_config.Password))

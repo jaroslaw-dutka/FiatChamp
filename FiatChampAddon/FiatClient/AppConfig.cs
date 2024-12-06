@@ -2,23 +2,21 @@ namespace FiatChamp;
 
 public record AppConfig
 {
-    public int RefreshInterval { get; set; } = 15;
+    public bool Debug { get; set; }
 
-    public string CarUnknownLocation { get; set; } = "away";
+    public bool FakeApi { get; set; }
+    
+    public int RefreshInterval { get; set; }
 
-    public int StartDelaySeconds { get; set; } = 1;
+    public string CarUnknownLocation { get; set; }
 
-    public bool AutoRefreshLocation { get; set; } = false;
+    public int StartDelaySeconds { get; set; }
 
-    public bool AutoRefreshBattery { get; set; } = false;
+    public bool AutoRefreshLocation { get; set; }
 
-    public bool EnableDangerousCommands { get; set; } = false;
+    public bool AutoRefreshBattery { get; set; }
 
-    public bool ConvertKmToMiles { get; set; } = false;
+    public bool EnableDangerousCommands { get; set; }
 
-    public bool DevMode { get; set; } = false;
-
-    public bool UseFakeApi { get; set; } = false;
-
-    public bool Debug { get; set; } = false;
+    public bool ConvertKmToMiles { get; set; }
 }
