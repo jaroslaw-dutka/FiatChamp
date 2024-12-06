@@ -5,6 +5,7 @@ using CoordinateSharp;
 using FiatChamp;
 using FiatChamp.Fiat;
 using FiatChamp.Ha;
+using FiatChamp.Mqtt;
 using Flurl.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,10 +18,6 @@ builder.Configuration
     .AddEnvironmentVariables("FiatChamp_")
     .AddJsonFile("appsettings.json")
     .AddUserSecrets<Program>();
-
-//todo: integrate reports and events
-//todo: schedule turn charging off
-//todo: better handling of auto refresh battery and location ...
 
 builder.Services.AddOptions<AppConfig>()
   .Bind(builder.Configuration)
@@ -57,7 +54,7 @@ await app.RunAsync(async (CoconaAppContext ctx) =>
       ? new FiatClientFake()
       : new FiatClient(appConfig.FiatUser, appConfig.FiatPw, appConfig.Brand, appConfig.Region);
 
-  var mqttClient = new SimpleMqttClient(appConfig.MqttServer,
+  var mqttClient = new MqttClient(appConfig.MqttServer,
     appConfig.MqttPort,
     appConfig.MqttUser,
     appConfig.MqttPw,
@@ -97,7 +94,7 @@ await app.RunAsync(async (CoconaAppContext ctx) =>
         var haDevice = new HaDevice()
         {
           Name = vehicleName + suffix,
-          Identifier = vehicle.Vin + suffix,
+          Identifiers = vehicle.Vin + suffix,
           Manufacturer = vehicle.Make,
           Model = vehicle.ModelDescription,
           Version = "1.0"
@@ -279,8 +276,7 @@ async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, str
   return true;
 }
 
-IEnumerable<HaEntity> CreateInteractiveEntities(IFiatClient fiatClient, SimpleMqttClient mqttClient, Vehicle vehicle,
-  HaDevice haDevice)
+IEnumerable<HaEntity> CreateInteractiveEntities(IFiatClient fiatClient, IMqttClient mqttClient, Vehicle vehicle, HaDevice haDevice)
 {
   var updateLocationButton = new HaButton(mqttClient, "UpdateLocation", haDevice, async button =>
   {

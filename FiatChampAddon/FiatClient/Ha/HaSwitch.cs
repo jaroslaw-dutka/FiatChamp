@@ -1,3 +1,6 @@
+using System.Text.Json;
+using FiatChamp.Mqtt;
+
 namespace FiatChamp.Ha;
 
 public class HaSwitch : HaEntity
@@ -14,7 +17,7 @@ public class HaSwitch : HaEntity
         _ = PublishState();
     }
 
-    public HaSwitch(SimpleMqttClient mqttClient, string name, HaDevice haDevice, Func<HaSwitch, Task> onSwitchCommand)
+    public HaSwitch(IMqttClient mqttClient, string name, HaDevice haDevice, Func<HaSwitch, Task> onSwitchCommand)
         : base(mqttClient, name, haDevice)
     {
         _commandTopic = $"homeassistant/switch/{_id}/set";
@@ -38,21 +41,14 @@ public class HaSwitch : HaEntity
 
     public override async Task Announce()
     {
-        await _mqttClient.Pub(_configTopic, $$""" 
-                                              {
-                                                "device":{
-                                                  "identifiers":["{{_haDevice.Identifier}}"],
-                                                  "manufacturer":"{{_haDevice.Manufacturer}}", 
-                                                  "model":"{{_haDevice.Model}}",
-                                                  "name":"{{_haDevice.Name}}",
-                                                  "sw_version":"{{_haDevice.Version}}"},
-                                                "name":"{{_name}}",
-                                                "command_topic":"{{_commandTopic}}",
-                                                "state_topic":"{{_stateTopic}}",
-                                                "unique_id":"{{_id}}",
-                                                "platform":"mqtt"
-                                              }
-
-                                              """);
+        await _mqttClient.Pub(_configTopic, JsonSerializer.Serialize(new HaAnnouncement
+        {
+            Device = _haDevice,
+            Name = _name,
+            CommandTopic = _commandTopic,
+            StateTopic = _stateTopic,
+            UniqueId = _id,
+            Platform = "mqtt",
+        }));
     }
 }

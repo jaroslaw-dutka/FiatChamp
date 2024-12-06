@@ -1,3 +1,6 @@
+using System.Text.Json;
+using FiatChamp.Mqtt;
+
 namespace FiatChamp.Ha;
 
 public class HaDeviceTracker : HaEntity
@@ -10,8 +13,7 @@ public class HaDeviceTracker : HaEntity
     public double Lon { get; set; }
     public string StateValue { get; set; }
 
-    public HaDeviceTracker(SimpleMqttClient mqttClient, string name, HaDevice haDevice)
-        : base(mqttClient, name, haDevice)
+    public HaDeviceTracker(IMqttClient mqttClient, string name, HaDevice haDevice) : base(mqttClient, name, haDevice)
     {
         _stateTopic = $"homeassistant/sensor/{_id}/state";
         _configTopic = $"homeassistant/sensor/{_id}/config";
@@ -35,22 +37,15 @@ public class HaDeviceTracker : HaEntity
 
     public override async Task Announce()
     {
-        await _mqttClient.Pub(_configTopic, $$""" 
-                                              {
-                                                "device":{
-                                                  "identifiers":["{{_haDevice.Identifier}}"],
-                                                  "manufacturer":"{{_haDevice.Manufacturer}}", 
-                                                  "model":"{{_haDevice.Model}}",
-                                                  "name":"{{_haDevice.Name}}",
-                                                  "sw_version":"{{_haDevice.Version}}"},
-                                                "name":"{{_name}}",
-                                                "state_topic":"{{_stateTopic}}",
-                                                "unique_id":"{{_id}}",
-                                                "platform":"mqtt",
-                                                "json_attributes_topic": "{{_attributesTopic}}"
-                                              }
-
-                                              """);
+        await _mqttClient.Pub(_configTopic, JsonSerializer.Serialize(new HaAnnouncement
+        {
+            Device = _haDevice,
+            Name = _name,
+            StateTopic = _stateTopic,
+            UniqueId = _id,
+            Platform = "mqtt",
+            JsonAttributesTopic = _attributesTopic
+        }));
 
         await Task.Delay(200);
     }
