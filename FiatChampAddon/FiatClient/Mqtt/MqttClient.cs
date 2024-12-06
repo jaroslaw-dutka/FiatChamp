@@ -8,26 +8,12 @@ namespace FiatChamp.Mqtt;
 
 public class MqttClient : IMqttClient
 {
-    private readonly string _server;
-    private readonly string _user;
-    private readonly string _pass;
-    private readonly string _clientId;
-    private readonly bool _useTls;
+    private readonly MqttConfig _config;
     private readonly IManagedMqttClient _mqttClient;
-    private readonly int? _port;
 
-    public MqttClient(IOptions<AppConfig> config) : this(config.Value.MqttServer, config.Value.MqttPort, config.Value.MqttUser, config.Value.MqttPw, config.Value.DevMode ? "FiatChampDEV" : "FiatChamp")
+    public MqttClient(IOptions<MqttConfig> config)
     {
-    }
-
-    public MqttClient(string server, int? port, string user, string pass, string clientId, bool useTls = false)
-    {
-        _server = server;
-        _port = port;
-        _user = user;
-        _pass = pass;
-        _clientId = clientId;
-        _useTls = useTls;
+        _config = config.Value;
         _mqttClient = new MqttFactory().CreateManagedMqttClient();
     }
 
@@ -35,19 +21,19 @@ public class MqttClient : IMqttClient
     {
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithCleanSession()
-            .WithClientId(_clientId)
-            .WithTcpServer(_server, _port);
+            .WithClientId("FiatChamp")
+            .WithTcpServer(_config.Server, _config.Port);
 
-        if (string.IsNullOrWhiteSpace(_user) || string.IsNullOrWhiteSpace(_pass))
+        if (string.IsNullOrWhiteSpace(_config.User) || string.IsNullOrWhiteSpace(_config.Password))
         {
             Log.Warning("Mqtt User/Password is EMPTY.");
         }
         else
         {
-            mqttClientOptions.WithCredentials(_user, _pass);
+            mqttClientOptions.WithCredentials(_config.User, _config.Password);
         }
 
-        if (_useTls)
+        if (_config.UseTls)
         {
             mqttClientOptions.WithTls();
         }

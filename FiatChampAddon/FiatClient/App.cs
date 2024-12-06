@@ -18,13 +18,15 @@ namespace FiatChamp
         private readonly ConcurrentDictionary<string, IEnumerable<HaEntity>> _persistentHaEntities = new();
 
         private readonly AppConfig _appConfig;
+        private readonly FiatConfig _fiatConfig;
         private readonly IMqttClient _mqttClient;
         private readonly IFiatClient _fiatClient;
         private readonly HaRestApi _haClient;
 
-        public App(IOptions<AppConfig> appConfig, IMqttClient mqttClient, IFiatClient fiatClient, HaRestApi haClient)
+        public App(IOptions<AppConfig> appConfig, IOptions<FiatConfig> fiatConfig, IMqttClient mqttClient, IFiatClient fiatClient, HaRestApi haClient)
         {
             _appConfig = appConfig.Value;
+            _fiatConfig = fiatConfig.Value;
             _mqttClient = mqttClient;
             _fiatClient = fiatClient;
             _haClient = haClient;
@@ -35,14 +37,10 @@ namespace FiatChamp
             Log.Information("Delay start for seconds: {0}", _appConfig.StartDelaySeconds);
             await Task.Delay(TimeSpan.FromSeconds(_appConfig.StartDelaySeconds), cancellationToken);
 
-            if (_appConfig.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
+            if (_fiatConfig.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
             {
-                Log.Warning("{0} support is experimental.", _appConfig.Brand);
+                Log.Warning("{0} support is experimental.", _fiatConfig.Brand);
             }
-
-            Log.Information("{0}", _appConfig.ToStringWithoutSecrets());
-            Log.Debug("{0}", _appConfig.Dump());
-
             
             await _mqttClient.Connect();
 
@@ -230,12 +228,12 @@ namespace FiatChamp
         {
             Log.Information("SEND COMMAND {0}: ", command.Message);
 
-            if (string.IsNullOrWhiteSpace(_appConfig.FiatPin))
+            if (string.IsNullOrWhiteSpace(_fiatConfig.Pin))
             {
                 throw new Exception("PIN NOT SET");
             }
 
-            var pin = _appConfig.FiatPin;
+            var pin = _fiatConfig.Pin;
 
             if (command.IsDangerous && !_appConfig.EnableDangerousCommands)
             {

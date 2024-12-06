@@ -26,6 +26,8 @@ Log.Logger = new LoggerConfiguration()
 var services = new ServiceCollection();
 
 services.Configure<AppConfig>(configuration);
+services.Configure<MqttConfig>(configuration.GetSection("mqtt"));
+services.Configure<FiatConfig>(configuration.GetSection("fiat"));
 services.AddSingleton<IApp, App>();
 services.AddSingleton<IMqttClient, MqttClient>();
 services.AddSingleton<IFiatClient, FiatClient>();
