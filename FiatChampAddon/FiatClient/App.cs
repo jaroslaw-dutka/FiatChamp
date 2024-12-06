@@ -19,11 +19,12 @@ namespace FiatChamp
 
         private readonly AppConfig _appConfig;
         private readonly FiatConfig _fiatConfig;
-        private readonly IMqttClient _mqttClient;
-        private readonly IFiatClient _fiatClient;
-        private readonly HaRestApi _haClient;
 
-        public App(IOptions<AppConfig> appConfig, IOptions<FiatConfig> fiatConfig, IMqttClient mqttClient, IFiatClient fiatClient, HaRestApi haClient)
+        private readonly IFiatClient _fiatClient;
+        private readonly IMqttClient _mqttClient;
+        private readonly IHaRestApi _haClient;
+
+        public App(IOptions<AppConfig> appConfig, IOptions<FiatConfig> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
         {
             _appConfig = appConfig.Value;
             _fiatConfig = fiatConfig.Value;

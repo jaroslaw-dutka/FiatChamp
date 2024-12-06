@@ -1,31 +1,24 @@
 using CoordinateSharp;
 using FiatChamp.Ha.Model;
-using Flurl;
 using Flurl.Http;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
 namespace FiatChamp.Ha;
 
-public class HaRestApi
+public class HaRestApi : IHaRestApi
 {
-    private readonly string _url;
-    private readonly string _token;
+    private readonly HaConfig _config;
 
-    public HaRestApi(string url, string token)
+    public HaRestApi(IOptions<HaConfig> config)
     {
-        _url = url.AppendPathSegment("api");
-        _token = token;
-    }
-
-    public HaRestApi(string token)
-    {
-        _token = token;
+        _config = config.Value;
     }
 
     private async Task<JObject> GetConfig()
     {
-        return await _url
-            .WithOAuthBearerToken(_token)
+        return await _config.Url
+            .WithOAuthBearerToken(_config.Token)
             .AppendPathSegment("config")
             .GetJsonAsync<JObject>();
     }
@@ -66,8 +59,8 @@ public class HaRestApi
 
     public async Task<IReadOnlyList<HaRestApiEntityState>> GetStates()
     {
-        var result = await _url
-            .WithOAuthBearerToken(_token)
+        var result = await _config.Url
+            .WithOAuthBearerToken(_config.Token)
             .AppendPathSegment("states")
             .GetJsonAsync<HaRestApiEntityState[]>();
 

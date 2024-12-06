@@ -13,8 +13,8 @@ Console.CancelKeyPress += delegate
 };
 
 var configuration = new ConfigurationBuilder()
-    .AddEnvironmentVariables("FiatChamp_")
     .AddJsonFile("appsettings.json")
+    .AddEnvironmentVariables("FiatChamp_")
     .AddUserSecrets<Program>()
     .Build();
 
@@ -25,13 +25,15 @@ Log.Logger = new LoggerConfiguration()
 
 var services = new ServiceCollection();
 
-services.Configure<AppConfig>(configuration);
-services.Configure<MqttConfig>(configuration.GetSection("mqtt"));
+services.Configure<AppConfig>(configuration.GetSection("app"));
 services.Configure<FiatConfig>(configuration.GetSection("fiat"));
+services.Configure<MqttConfig>(configuration.GetSection("mqtt"));
+services.Configure<HaConfig>(configuration.GetSection("ha"));
+
 services.AddSingleton<IApp, App>();
-services.AddSingleton<IMqttClient, MqttClient>();
 services.AddSingleton<IFiatClient, FiatClient>();
-services.AddSingleton<HaRestApi>();
+services.AddSingleton<IMqttClient, MqttClient>();
+services.AddSingleton<IHaRestApi, HaRestApi>();
 
 var provider = services.BuildServiceProvider();
 
