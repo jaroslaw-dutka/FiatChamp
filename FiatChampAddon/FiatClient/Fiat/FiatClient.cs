@@ -5,6 +5,7 @@ using Amazon.Runtime;
 using FiatChamp.Http;
 using Flurl;
 using Flurl.Http;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Serilog;
 
@@ -31,6 +32,10 @@ public class FiatClient : IFiatClient
     private readonly IFlurlClient _defaultHttpClient;
 
     private (string userUid, ImmutableCredentials awsCredentials)? _loginInfo = null;
+
+    public FiatClient(IOptions<AppConfig> config): this(config.Value.FiatUser, config.Value.FiatPw, config.Value.Brand, config.Value.Region)
+    {
+    }
 
     public FiatClient(string user, string password, FcaBrand brand = FcaBrand.Fiat, FcaRegion region = FcaRegion.Europe)
     {

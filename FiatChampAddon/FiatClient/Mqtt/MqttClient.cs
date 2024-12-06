@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
@@ -14,6 +15,10 @@ public class MqttClient : IMqttClient
     private readonly bool _useTls;
     private readonly IManagedMqttClient _mqttClient;
     private readonly int? _port;
+
+    public MqttClient(IOptions<AppConfig> config) : this(config.Value.MqttServer, config.Value.MqttPort, config.Value.MqttUser, config.Value.MqttPw, config.Value.DevMode ? "FiatChampDEV" : "FiatChamp")
+    {
+    }
 
     public MqttClient(string server, int? port, string user, string pass, string clientId, bool useTls = false)
     {

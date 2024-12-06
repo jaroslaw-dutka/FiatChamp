@@ -1,4 +1,5 @@
 ﻿using FiatChamp;
+using FiatChamp.Fiat;
 using FiatChamp.Ha;
 using FiatChamp.Mqtt;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +29,7 @@ var services = new ServiceCollection();
 services.Configure<AppConfig>(configuration);
 services.AddSingleton<IApp, App>();
 services.AddSingleton<IMqttClient, MqttClient>();
+services.AddSingleton<IFiatClient, FiatClient>();
 services.AddSingleton<HaRestApi>();
 
 var provider = services.BuildServiceProvider();
