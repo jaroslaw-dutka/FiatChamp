@@ -1,4 +1,4 @@
-public abstract class BaseResponse
+public abstract class FiatBaseResponse
 {
     public abstract bool CheckForError();
 

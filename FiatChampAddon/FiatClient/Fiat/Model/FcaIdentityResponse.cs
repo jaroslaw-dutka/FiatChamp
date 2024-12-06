@@ -1,4 +1,4 @@
-public class FcaIdentityResponse : BaseResponse
+public class FcaIdentityResponse : FiatBaseResponse
 {
     public string IdentityId { get; set; }
     public string Token { get; set; }
