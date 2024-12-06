@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 var cts = new CancellationTokenSource();
-
 Console.CancelKeyPress += delegate
 {
     cts.Cancel();

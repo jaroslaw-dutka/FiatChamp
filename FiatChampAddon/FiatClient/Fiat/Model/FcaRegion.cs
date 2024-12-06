@@ -1,4 +1,4 @@
-namespace FiatChamp.Fiat;
+namespace FiatChamp.Fiat.Model;
 
 public enum FcaRegion
 {

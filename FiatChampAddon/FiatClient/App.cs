@@ -8,6 +8,7 @@ using System.Globalization;
 using FiatChamp.Mqtt;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
+using FiatChamp.Fiat.Model;
 
 namespace FiatChamp
 {
