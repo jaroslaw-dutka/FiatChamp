@@ -2,6 +2,7 @@ using System.Text;
 using Amazon;
 using Amazon.CognitoIdentity;
 using Amazon.Runtime;
+using FiatChamp.Extensions;
 using FiatChamp.Fiat.Model;
 using FiatChamp.Http;
 using Flurl;
