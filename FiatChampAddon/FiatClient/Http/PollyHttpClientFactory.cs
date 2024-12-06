@@ -2,7 +2,7 @@ using Flurl.Http.Configuration;
 using Polly;
 using Serilog;
 
-namespace FiatChamp;
+namespace FiatChamp.Http;
 
 public class PollyHttpClientFactory : DefaultHttpClientFactory
 {

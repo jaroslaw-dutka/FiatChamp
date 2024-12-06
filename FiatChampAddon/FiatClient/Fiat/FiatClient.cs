@@ -2,6 +2,7 @@ using System.Text;
 using Amazon;
 using Amazon.CognitoIdentity;
 using Amazon.Runtime;
+using FiatChamp.Http;
 using Flurl;
 using Flurl.Http;
 using Newtonsoft.Json.Linq;
