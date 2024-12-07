@@ -77,7 +77,7 @@ namespace FiatChamp
                         var haDevice = new HaDevice()
                         {
                             Name = vehicleName,
-                            Identifiers = vehicle.Vin,
+                            Identifiers = new List<string> { vehicle.Vin },
                             Manufacturer = vehicle.Make,
                             Model = vehicle.ModelDescription,
                             Version = "1.0"

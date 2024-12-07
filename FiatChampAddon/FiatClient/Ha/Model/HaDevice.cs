@@ -5,7 +5,7 @@ namespace FiatChamp.Ha.Model;
 public class HaDevice
 {
     [JsonPropertyName("identifiers")]
-    public string Identifiers { get; set; }
+    public List<string> Identifiers { get; set; }
 
     [JsonPropertyName("manufacturer")]
     public string Manufacturer { get; set; }

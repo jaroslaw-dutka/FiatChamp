@@ -5,10 +5,10 @@ namespace FiatChamp.Ha;
 
 public class HaSensor : HaEntity
 {
-    public string Value { get; set; } = "";
+    public string Value { get; set; }
     public string Icon { get; set; } = "mdi:eye";
-    public string Unit { get; set; } = "";
-    public string DeviceClass { get; set; } = "";
+    public string Unit { get; set; }
+    public string DeviceClass { get; set; }
 
     private readonly string _stateTopic;
     private readonly string _configTopic;

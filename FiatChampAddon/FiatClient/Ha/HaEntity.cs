@@ -17,7 +17,7 @@ public abstract class HaEntity
         _mqttClient = mqttClient;
         _name = name;
         _haDevice = haDevice;
-        _id = $"{haDevice.Identifiers}_{name}";
+        _id = $"{haDevice.Identifiers.First()}_{name}";
     }
 
     public abstract Task PublishState();
