@@ -34,7 +34,7 @@ public class FiatClient : IFiatClient
     public FiatClient(ILogger<FiatClient> logger, IOptions<FiatSettings> config, IFlurlClientCache flurlClientCache)
     {
         _logger = logger;
-        _defaultHttpClient = flurlClientCache.Get(string.Empty);
+        _defaultHttpClient = flurlClientCache.GetOrAdd(string.Empty);
 
         _settings = config.Value;
 

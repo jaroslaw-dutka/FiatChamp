@@ -5,12 +5,11 @@ namespace FiatChamp.Http;
 
 public class PollyRequestHandler : DelegatingHandler
 {
-    private readonly ILogger _logger;
+    private readonly ILogger<PollyRequestHandler> _logger;
 
-    public PollyRequestHandler(ILogger logger, HttpClientHandler innerHandler)
+    public PollyRequestHandler(ILogger<PollyRequestHandler> logger)
     {
         _logger = logger;
-        InnerHandler = innerHandler;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
