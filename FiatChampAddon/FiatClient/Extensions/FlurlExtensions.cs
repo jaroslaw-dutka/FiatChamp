@@ -9,8 +9,7 @@ namespace FiatChamp.Extensions;
 
 public static class FlurlExtensions
 {
-    public static IFlurlRequest AwsSign(this IFlurlRequest request, ImmutableCredentials credentials, RegionEndpoint regionEndpoint, object? data = null)
-    {
+    public static IFlurlRequest AwsSign(this IFlurlRequest request, ImmutableCredentials credentials, RegionEndpoint regionEndpoint, object? data = null) =>
         request.BeforeCall(call =>
         {
             var json = data == null ? "" : JsonSerializer.Serialize(data);
@@ -19,7 +18,4 @@ public static class FlurlExtensions
                 null, new List<KeyValuePair<string, IEnumerable<string>>>(),
                 DateTime.Now, regionEndpoint.SystemName, "execute-api", credentials);
         });
-
-        return request;
-    }
 }
