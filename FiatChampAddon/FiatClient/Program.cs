@@ -23,7 +23,7 @@ var configuration = new ConfigurationBuilder()
 var appConfig = new AppSettings();
 configuration.GetSection("app").Bind(appConfig);
 
-Log.Logger = new LoggerConfiguration()
+var logger = new LoggerConfiguration()
     .MinimumLevel.Is(appConfig.Debug ? LogEventLevel.Debug : LogEventLevel.Information)
     .WriteTo.Console()
     .CreateLogger();
@@ -31,6 +31,7 @@ Log.Logger = new LoggerConfiguration()
 var services = new ServiceCollection();
 
 services.AddHttpClient();
+services.AddLogging(i => i.AddSerilog(logger));
 
 services.Configure<AppSettings>(configuration.GetSection("app"));
 services.Configure<FiatSettings>(configuration.GetSection("fiat"));

@@ -3,13 +3,13 @@ using FiatChamp.Fiat;
 using FiatChamp.Ha.Model;
 using FiatChamp.Ha;
 using Flurl.Http;
-using Serilog;
 using System.Globalization;
 using FiatChamp.Mqtt;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using FiatChamp.Fiat.Model;
 using FiatChamp.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace FiatChamp
 {
@@ -21,14 +21,16 @@ namespace FiatChamp
         private readonly AppSettings _appSettings;
         private readonly FiatSettings _fiatSettings;
 
+        private readonly ILogger<App> _logger;
         private readonly IFiatClient _fiatClient;
         private readonly IMqttClient _mqttClient;
         private readonly IHaRestApi _haClient;
 
-        public App(IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
+        public App(ILogger<App> logger, IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
         {
             _appSettings = appConfig.Value;
             _fiatSettings = fiatConfig.Value;
+            _logger = logger;
             _mqttClient = mqttClient;
             _fiatClient = fiatClient;
             _haClient = haClient;
@@ -36,19 +38,19 @@ namespace FiatChamp
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            Log.Information("Delay start for seconds: {0}", _appSettings.StartDelaySeconds);
+            _logger.LogInformation("Delay start for seconds: {0}", _appSettings.StartDelaySeconds);
             await Task.Delay(TimeSpan.FromSeconds(_appSettings.StartDelaySeconds), cancellationToken);
 
             if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
             {
-                Log.Warning("{0} support is experimental.", _fiatSettings.Brand);
+                _logger.LogWarning("{0} support is experimental.", _fiatSettings.Brand);
             }
             
             await _mqttClient.Connect();
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Log.Information("Now fetching new data...");
+                _logger.LogInformation("Now fetching new data...");
 
                 GC.Collect();
 
@@ -58,7 +60,7 @@ namespace FiatChamp
 
                     foreach (var vehicle in await _fiatClient.Fetch())
                     {
-                        Log.Information("FOUND CAR: {0}", vehicle.Vin);
+                        _logger.LogInformation("FOUND CAR: {0}", vehicle.Vin);
 
                         if (_appSettings.AutoRefreshBattery)
                         {
@@ -87,7 +89,7 @@ namespace FiatChamp
 
                         var zones = await _haClient.GetZonesAscending(currentCarLocation);
 
-                        Log.Debug("Zones: {0}", zones.Dump());
+                        _logger.LogDebug("Zones: {0}", zones.Dump());
 
                         var tracker = new HaDeviceTracker(_mqttClient, "CAR_LOCATION", haDevice)
                         {
@@ -96,20 +98,20 @@ namespace FiatChamp
                             StateValue = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation
                         };
 
-                        Log.Information("Car is at location: {0}", tracker.Dump());
+                        _logger.LogInformation("Car is at location: {0}", tracker.Dump());
 
-                        Log.Debug("Announce sensor: {0}", tracker.Dump());
+                        _logger.LogDebug("Announce sensor: {0}", tracker.Dump());
                         await tracker.Announce();
                         await tracker.PublishState();
 
                         var compactDetails = vehicle.Details.Compact("car");
                         var unitSystem = await _haClient.GetUnitSystem();
 
-                        Log.Information("Using unit system: {0}", unitSystem.Dump());
+                        _logger.LogInformation("Using unit system: {0}", unitSystem.Dump());
 
                         var shouldConvertKmToMiles = (_appSettings.ConvertKmToMiles || unitSystem.Length != "km");
 
-                        Log.Information("Convert km -> miles ? {0}", shouldConvertKmToMiles);
+                        _logger.LogInformation("Convert km -> miles ? {0}", shouldConvertKmToMiles);
 
                         var sensors = compactDetails.Select(detail =>
                         {
@@ -166,12 +168,12 @@ namespace FiatChamp
                             timeToFullyChargeSensor.Unit = "min";
                         }
 
-                        Log.Debug("Announce sensors: {0}", sensors.Dump());
-                        Log.Information("Pushing new sensors and values to Home Assistant");
+                        _logger.LogDebug("Announce sensors: {0}", sensors.Dump());
+                        _logger.LogInformation("Pushing new sensors and values to Home Assistant");
 
                         await Parallel.ForEachAsync(sensors.Values, async (sensor, token) => { await sensor.Announce(); });
 
-                        Log.Debug("Waiting for home assistant to process all sensors");
+                        _logger.LogDebug("Waiting for home assistant to process all sensors");
                         await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
 
                         await Parallel.ForEachAsync(sensors.Values, async (sensor, token) => { await sensor.PublishState(); });
@@ -190,32 +192,32 @@ namespace FiatChamp
 
                         foreach (var haEntity in haEntities)
                         {
-                            Log.Debug("Announce sensor: {0}", haEntity.Dump());
+                            _logger.LogDebug("Announce sensor: {0}", haEntity.Dump());
                             await haEntity.Announce();
                         }
                     }
                 }
                 catch (FlurlHttpException httpException)
                 {
-                    Log.Warning($"Error connecting to the FIAT API. \n" +
+                    _logger.LogWarning($"Error connecting to the FIAT API. \n" +
                                 $"This can happen from time to time. Retrying in {_appSettings.RefreshInterval} minutes.");
 
-                    Log.Debug("ERROR: {0}", httpException.Message);
-                    Log.Debug("STATUS: {0}", httpException.StatusCode);
+                    _logger.LogDebug("ERROR: {0}", httpException.Message);
+                    _logger.LogDebug("STATUS: {0}", httpException.StatusCode);
 
                     var task = httpException.Call?.Response?.GetStringAsync();
 
                     if (task != null)
                     {
-                        Log.Debug("RESPONSE: {0}", await task);
+                        _logger.LogDebug("RESPONSE: {0}", await task);
                     }
                 }
                 catch (Exception e)
                 {
-                    Log.Error("{0}", e);
+                    _logger.LogError("{0}", e);
                 }
 
-                Log.Information("Fetching COMPLETED. Next update in {0} minutes.", _appSettings.RefreshInterval);
+                _logger.LogInformation("Fetching COMPLETED. Next update in {0} minutes.", _appSettings.RefreshInterval);
 
                 WaitHandle.WaitAny(new[]
                 {
@@ -227,7 +229,7 @@ namespace FiatChamp
 
         private async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, string vin)
         {
-            Log.Information("SEND COMMAND {0}: ", command.Message);
+            _logger.LogInformation("SEND COMMAND {0}: ", command.Message);
 
             if (string.IsNullOrWhiteSpace(_fiatSettings.Pin))
             {
@@ -238,7 +240,7 @@ namespace FiatChamp
 
             if (command.IsDangerous && !_appSettings.EnableDangerousCommands)
             {
-                Log.Warning("{0} not sent. " +
+                _logger.LogWarning("{0} not sent. " +
                             "Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
                 return false;
             }
@@ -247,12 +249,12 @@ namespace FiatChamp
             {
                 await fiatClient.SendCommand(vin, command.Message, pin, command.Action);
                 await Task.Delay(TimeSpan.FromSeconds(5));
-                Log.Information("Command: {0} SUCCESSFUL", command.Message);
+                _logger.LogInformation("Command: {0} SUCCESSFUL", command.Message);
             }
             catch (Exception e)
             {
-                Log.Error("Command: {0} ERROR. Maybe wrong pin?", command.Message);
-                Log.Debug("{0}", e);
+                _logger.LogError("Command: {0} ERROR. Maybe wrong pin?", command.Message);
+                _logger.LogDebug("{0}", e);
                 return false;
             }
 
