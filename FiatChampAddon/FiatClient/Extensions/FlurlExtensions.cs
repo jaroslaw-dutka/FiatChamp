@@ -1,9 +1,9 @@
 using System.Text;
+using System.Text.Json;
 using Amazon;
 using Amazon.Runtime;
 using AwsSignatureVersion4.Private;
 using Flurl.Http;
-using Newtonsoft.Json;
 
 namespace FiatChamp.Extensions;
 
@@ -13,7 +13,7 @@ public static class FlurlExtensions
     {
         request.BeforeCall(call =>
         {
-            var json = data == null ? "" : JsonConvert.SerializeObject(data);
+            var json = data == null ? "" : JsonSerializer.Serialize(data);
             call.HttpRequestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
             Signer.Sign(call.HttpRequestMessage,
                 null, new List<KeyValuePair<string, IEnumerable<string>>>(),

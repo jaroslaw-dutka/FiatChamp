@@ -104,7 +104,7 @@ namespace FiatChamp
                         await tracker.Announce();
                         await tracker.PublishState();
 
-                        var compactDetails = vehicle.Details.Compact("car");
+                        var compactDetails = vehicle.Details.Flatten("car");
                         var unitSystem = await _haClient.GetUnitSystem();
 
                         _logger.LogInformation("Using unit system: {0}", unitSystem.Dump());

@@ -1,5 +1,5 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Newtonsoft.Json.Linq;
 
 namespace FiatChamp.Ha.Model;
 
@@ -12,10 +12,5 @@ public class HaRestApiEntityState
     public string State { get; set; } = null!;
 
     [JsonPropertyName("attributes")]
-    public JObject Attributes { get; set; } = new();
-
-    public T AttrTo<T>()
-    {
-        return Attributes.ToObject<T>();
-    }
+    public JsonObject Attributes { get; set; } = new();
 }

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 using Amazon;
 using Amazon.CognitoIdentity;
 using Amazon.Runtime;
@@ -8,7 +9,6 @@ using FiatChamp.Http;
 using Flurl;
 using Flurl.Http;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Linq;
 using Serilog;
 
 namespace FiatChamp.Fiat;
@@ -293,7 +293,7 @@ public class FiatClient : IFiatClient
                 .AppendPathSegments("v2", "accounts", userUid, "vehicles", vehicle.Vin, "status")
                 .WithHeaders(WithAwsDefaultParameter(_apiKey))
                 .AwsSign(awsCredentials, _awsEndpoint)
-                .GetJsonAsync<JObject>();
+                .GetJsonAsync<JsonObject>();
 
             Log.Debug("{0}", vehicleDetails.Dump());
 

@@ -1,12 +1,18 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace FiatChamp.Extensions;
 
 public static class ObjectExtensions
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        WriteIndented = true
+    };
+
     public static string Dump(this object? o)
     {
+
         try
         {
             var result = o;
@@ -20,8 +26,8 @@ public static class ObjectExtensions
             {
                 try
                 {
-                    var json = JObject.Parse(str);
-                    return json.ToString(Formatting.Indented);
+                    var json = JsonNode.Parse(str);
+                    return json.ToString();
                 }
                 catch (Exception e)
                 {
@@ -29,7 +35,7 @@ public static class ObjectExtensions
                 }
             }
 
-            return JsonConvert.SerializeObject(result, Formatting.Indented);
+            return JsonSerializer.Serialize(result, SerializerOptions);
 
         }
         catch (Exception)

@@ -1,7 +1,7 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 public class FiatSessionInfo
 {
-    [JsonProperty("login_token")] 
+    [JsonPropertyName("login_token")] 
     public string LoginToken { get; set; }
 }

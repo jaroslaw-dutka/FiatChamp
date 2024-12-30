@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CoordinateSharp;
 using FiatChamp.Ha.Model;
 
@@ -16,7 +17,7 @@ public static class HaRestApiExtensions
         var states = await api.GetStates();
         return states
             .Where(state => state.EntityId.StartsWith("zone."))
-            .Select(state => state.AttrTo<HaRestApiZone>())
+            .Select(state => state.Attributes.Deserialize<HaRestApiZone>()!)
             .ToArray();
     }
 

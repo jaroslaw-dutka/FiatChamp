@@ -1,7 +1,7 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 public class FiatJwtResponse : FiatResponse
 {
-    [JsonProperty("id_token")] 
+    [JsonPropertyName("id_token")] 
     public string IdToken { get; set; }
 }
