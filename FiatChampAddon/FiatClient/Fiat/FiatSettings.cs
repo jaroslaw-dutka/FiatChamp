@@ -2,7 +2,7 @@ using FiatChamp.Fiat.Model;
 
 namespace FiatChamp.Fiat;
 
-public record FiatConfig
+public record FiatSettings
 {
     public FcaBrand Brand { get; set; }
 

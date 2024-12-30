@@ -4,6 +4,7 @@ using FiatChamp.Ha;
 using FiatChamp.Mqtt;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 
@@ -19,7 +20,7 @@ var configuration = new ConfigurationBuilder()
     .AddUserSecrets<Program>()
     .Build();
 
-var appConfig = new AppConfig();
+var appConfig = new AppSettings();
 configuration.GetSection("app").Bind(appConfig);
 
 Log.Logger = new LoggerConfiguration()
@@ -29,16 +30,19 @@ Log.Logger = new LoggerConfiguration()
 
 var services = new ServiceCollection();
 
-services.Configure<AppConfig>(configuration.GetSection("app"));
-services.Configure<FiatConfig>(configuration.GetSection("fiat"));
-services.Configure<MqttConfig>(configuration.GetSection("mqtt"));
-services.Configure<HaConfig>(configuration.GetSection("ha"));
+services.AddHttpClient();
+
+services.Configure<AppSettings>(configuration.GetSection("app"));
+services.Configure<FiatSettings>(configuration.GetSection("fiat"));
+services.Configure<MqttSettings>(configuration.GetSection("mqtt"));
+services.Configure<HaSettings>(configuration.GetSection("ha"));
 
 services.AddSingleton<IApp, App>();
-if (appConfig.FakeApi)
-    services.AddSingleton<IFiatClient, FiatClientFake>();
-else
-    services.AddSingleton<IFiatClient, FiatClient>();
+services.AddSingleton<FiatClient>();
+services.AddSingleton<FiatClientFake>();
+services.AddSingleton<IFiatClient>(s => s.GetService<IOptions<AppSettings>>().Value.FakeApi
+    ? s.GetService<FiatClientFake>()
+    : s.GetService<FiatClient>());
 services.AddSingleton<IMqttClient, MqttClient>();
 services.AddSingleton<IHaRestApi, HaRestApi>();
 

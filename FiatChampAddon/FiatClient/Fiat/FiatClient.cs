@@ -15,7 +15,7 @@ namespace FiatChamp.Fiat;
 
 public class FiatClient : IFiatClient
 {
-    private readonly FiatConfig _config;
+    private readonly FiatSettings _settings;
 
     private readonly string _loginApiKey = "3_mOx_J2dRgjXYCdyhchv3b5lhi54eBcdCTX4BI8MORqmZCoQWhA0mV2PTlptLGUQI";
     private readonly string _apiKey = "2wGyL6PHec9o1UeLPYpoYa1SkEWqeBur9bLsi24i";
@@ -31,11 +31,11 @@ public class FiatClient : IFiatClient
 
     private (string userUid, ImmutableCredentials awsCredentials)? _loginInfo = null;
 
-    public FiatClient(IOptions<FiatConfig> config)
+    public FiatClient(IOptions<FiatSettings> config)
     {
-        _config = config.Value;
+        _settings = config.Value;
 
-        if (_config.Brand == FcaBrand.Ram)
+        if (_settings.Brand == FcaBrand.Ram)
         {
             _loginApiKey = "3_7YjzjoSb7dYtCP5-D6FhPsCciggJFvM14hNPvXN9OsIiV1ujDqa4fNltDJYnHawO";
             _apiKey = "OgNqp2eAv84oZvMrXPIzP8mR8a6d9bVm1aaH9LqU";
@@ -47,7 +47,7 @@ public class FiatClient : IFiatClient
             _awsEndpoint = RegionEndpoint.USEast1;
             _locale = "en_us";
         }
-        else if (_config.Brand == FcaBrand.Dodge)
+        else if (_settings.Brand == FcaBrand.Dodge)
         {
             _loginApiKey = "3_etlYkCXNEhz4_KJVYDqnK1CqxQjvJStJMawBohJU2ch3kp30b0QCJtLCzxJ93N-M";
             _apiKey = "OgNqp2eAv84oZvMrXPIzP8mR8a6d9bVm1aaH9LqU";
@@ -59,7 +59,7 @@ public class FiatClient : IFiatClient
             _awsEndpoint = RegionEndpoint.USEast1;
             _locale = "en_us";
         }
-        else if (_config.Brand == FcaBrand.Fiat && _config.Region == FcaRegion.America)
+        else if (_settings.Brand == FcaBrand.Fiat && _settings.Region == FcaRegion.America)
         {
             _loginApiKey = "3_etlYkCXNEhz4_KJVYDqnK1CqxQjvJStJMawBohJU2ch3kp30b0QCJtLCzxJ93N-M";
             _apiKey = "OgNqp2eAv84oZvMrXPIzP8mR8a6d9bVm1aaH9LqU";
@@ -71,9 +71,9 @@ public class FiatClient : IFiatClient
             _awsEndpoint = RegionEndpoint.USEast1;
             _locale = "en_us";
         }
-        else if (_config.Brand == FcaBrand.Jeep)
+        else if (_settings.Brand == FcaBrand.Jeep)
         {
-            if (_config.Region == FcaRegion.Europe)
+            if (_settings.Region == FcaRegion.Europe)
             {
                 _loginApiKey = "3_ZvJpoiZQ4jT5ACwouBG5D1seGEntHGhlL0JYlZNtj95yERzqpH4fFyIewVMmmK7j";
                 _loginUrl = "https://login.jeep.com";
@@ -143,8 +143,8 @@ public class FiatClient : IFiatClient
             .PostUrlEncodedAsync(
                 WithFiatDefaultParameter(new()
                 {
-                    { "loginID", _config.User },
-                    { "password", _config.Password },
+                    { "loginID", _settings.User },
+                    { "password", _settings.Password },
                     { "sessionExpiration", TimeSpan.FromMinutes(5).TotalSeconds },
                     { "include", "profile,data,emails,subscriptions,preferences" },
                 }))

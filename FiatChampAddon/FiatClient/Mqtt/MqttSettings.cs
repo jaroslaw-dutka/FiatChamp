@@ -1,8 +1,6 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace FiatChamp.Mqtt;
 
-public class MqttConfig
+public class MqttSettings
 {
     public string Server { get; set; }
 

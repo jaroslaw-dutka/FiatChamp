@@ -8,12 +8,12 @@ namespace FiatChamp.Mqtt;
 
 public class MqttClient : IMqttClient
 {
-    private readonly MqttConfig _config;
+    private readonly MqttSettings _settings;
     private readonly IManagedMqttClient _mqttClient;
 
-    public MqttClient(IOptions<MqttConfig> config)
+    public MqttClient(IOptions<MqttSettings> config)
     {
-        _config = config.Value;
+        _settings = config.Value;
         _mqttClient = new MqttFactory().CreateManagedMqttClient();
     }
 
@@ -21,19 +21,19 @@ public class MqttClient : IMqttClient
     {
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithCleanSession()
-            .WithClientId(_config.ClientId)
-            .WithTcpServer(_config.Server, _config.Port);
+            .WithClientId(_settings.ClientId)
+            .WithTcpServer(_settings.Server, _settings.Port);
 
-        if (string.IsNullOrWhiteSpace(_config.User) || string.IsNullOrWhiteSpace(_config.Password))
+        if (string.IsNullOrWhiteSpace(_settings.User) || string.IsNullOrWhiteSpace(_settings.Password))
         {
             Log.Warning("Mqtt User/Password is EMPTY.");
         }
         else
         {
-            mqttClientOptions.WithCredentials(_config.User, _config.Password);
+            mqttClientOptions.WithCredentials(_settings.User, _settings.Password);
         }
 
-        if (_config.UseTls)
+        if (_settings.UseTls)
         {
             mqttClientOptions.WithTls();
         }

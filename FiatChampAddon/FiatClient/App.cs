@@ -18,17 +18,17 @@ namespace FiatChamp
         private readonly AutoResetEvent _forceLoopResetEvent = new(false);
         private readonly ConcurrentDictionary<string, IEnumerable<HaEntity>> _persistentHaEntities = new();
 
-        private readonly AppConfig _appConfig;
-        private readonly FiatConfig _fiatConfig;
+        private readonly AppSettings _appSettings;
+        private readonly FiatSettings _fiatSettings;
 
         private readonly IFiatClient _fiatClient;
         private readonly IMqttClient _mqttClient;
         private readonly IHaRestApi _haClient;
 
-        public App(IOptions<AppConfig> appConfig, IOptions<FiatConfig> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
+        public App(IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
         {
-            _appConfig = appConfig.Value;
-            _fiatConfig = fiatConfig.Value;
+            _appSettings = appConfig.Value;
+            _fiatSettings = fiatConfig.Value;
             _mqttClient = mqttClient;
             _fiatClient = fiatClient;
             _haClient = haClient;
@@ -36,12 +36,12 @@ namespace FiatChamp
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            Log.Information("Delay start for seconds: {0}", _appConfig.StartDelaySeconds);
-            await Task.Delay(TimeSpan.FromSeconds(_appConfig.StartDelaySeconds), cancellationToken);
+            Log.Information("Delay start for seconds: {0}", _appSettings.StartDelaySeconds);
+            await Task.Delay(TimeSpan.FromSeconds(_appSettings.StartDelaySeconds), cancellationToken);
 
-            if (_fiatConfig.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
+            if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
             {
-                Log.Warning("{0} support is experimental.", _fiatConfig.Brand);
+                Log.Warning("{0} support is experimental.", _fiatSettings.Brand);
             }
             
             await _mqttClient.Connect();
@@ -60,12 +60,12 @@ namespace FiatChamp
                     {
                         Log.Information("FOUND CAR: {0}", vehicle.Vin);
 
-                        if (_appConfig.AutoRefreshBattery)
+                        if (_appSettings.AutoRefreshBattery)
                         {
                             await TrySendCommand(_fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vin);
                         }
 
-                        if (_appConfig.AutoRefreshLocation)
+                        if (_appSettings.AutoRefreshLocation)
                         {
                             await TrySendCommand(_fiatClient, FiatCommands.VF, vehicle.Vin);
                         }
@@ -93,7 +93,7 @@ namespace FiatChamp
                         {
                             Lat = currentCarLocation.Latitude.ToDouble(),
                             Lon = currentCarLocation.Longitude.ToDouble(),
-                            StateValue = zones.FirstOrDefault()?.FriendlyName ?? _appConfig.CarUnknownLocation
+                            StateValue = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation
                         };
 
                         Log.Information("Car is at location: {0}", tracker.Dump());
@@ -107,7 +107,7 @@ namespace FiatChamp
 
                         Log.Information("Using unit system: {0}", unitSystem.Dump());
 
-                        var shouldConvertKmToMiles = (_appConfig.ConvertKmToMiles || unitSystem.Length != "km");
+                        var shouldConvertKmToMiles = (_appSettings.ConvertKmToMiles || unitSystem.Length != "km");
 
                         Log.Information("Convert km -> miles ? {0}", shouldConvertKmToMiles);
 
@@ -198,7 +198,7 @@ namespace FiatChamp
                 catch (FlurlHttpException httpException)
                 {
                     Log.Warning($"Error connecting to the FIAT API. \n" +
-                                $"This can happen from time to time. Retrying in {_appConfig.RefreshInterval} minutes.");
+                                $"This can happen from time to time. Retrying in {_appSettings.RefreshInterval} minutes.");
 
                     Log.Debug("ERROR: {0}", httpException.Message);
                     Log.Debug("STATUS: {0}", httpException.StatusCode);
@@ -215,13 +215,13 @@ namespace FiatChamp
                     Log.Error("{0}", e);
                 }
 
-                Log.Information("Fetching COMPLETED. Next update in {0} minutes.", _appConfig.RefreshInterval);
+                Log.Information("Fetching COMPLETED. Next update in {0} minutes.", _appSettings.RefreshInterval);
 
                 WaitHandle.WaitAny(new[]
                 {
                     cancellationToken.WaitHandle,
                     _forceLoopResetEvent
-                }, TimeSpan.FromMinutes(_appConfig.RefreshInterval));
+                }, TimeSpan.FromMinutes(_appSettings.RefreshInterval));
             }
         }
 
@@ -229,14 +229,14 @@ namespace FiatChamp
         {
             Log.Information("SEND COMMAND {0}: ", command.Message);
 
-            if (string.IsNullOrWhiteSpace(_fiatConfig.Pin))
+            if (string.IsNullOrWhiteSpace(_fiatSettings.Pin))
             {
                 throw new Exception("PIN NOT SET");
             }
 
-            var pin = _fiatConfig.Pin;
+            var pin = _fiatSettings.Pin;
 
-            if (command.IsDangerous && !_appConfig.EnableDangerousCommands)
+            if (command.IsDangerous && !_appSettings.EnableDangerousCommands)
             {
                 Log.Warning("{0} not sent. " +
                             "Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
@@ -311,14 +311,14 @@ namespace FiatChamp
 
             return new HaEntity[]
             {
-    hvacSwitch,
-    trunkSwitch,
-    chargeNowButton,
-    deepRefreshButton,
-    locateLightsButton,
-    updateLocationButton,
-    lockSwitch,
-    batteryRefreshButton
+                hvacSwitch,
+                trunkSwitch,
+                chargeNowButton,
+                deepRefreshButton,
+                locateLightsButton,
+                updateLocationButton,
+                lockSwitch,
+                batteryRefreshButton
             };
         }
     }

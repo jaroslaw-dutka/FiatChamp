@@ -1,26 +1,26 @@
+using System.Text.Json.Serialization;
 using CoordinateSharp;
-using Newtonsoft.Json;
 
 namespace FiatChamp.Ha.Model;
 
 public class HaRestApiZone
 {
-    [JsonProperty("latitude")]
+    [JsonPropertyName("latitude")]
     public double Latitude { get; set; }
 
-    [JsonProperty("longitude")]
+    [JsonPropertyName("longitude")]
     public double Longitude { get; set; }
 
-    [JsonProperty("radius")]
+    [JsonPropertyName("radius")]
     public long Radius { get; set; }
 
-    [JsonProperty("passive")]
+    [JsonPropertyName("passive")]
     public bool Passive { get; set; }
 
-    [JsonProperty("icon")]
+    [JsonPropertyName("icon")]
     public string? Icon { get; set; }
 
-    [JsonProperty("friendly_name")]
+    [JsonPropertyName("friendly_name")]
     public string FriendlyName { get; set; } = null!;
 
     [JsonIgnore]

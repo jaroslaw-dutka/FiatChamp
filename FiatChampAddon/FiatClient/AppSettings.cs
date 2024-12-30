@@ -1,6 +1,6 @@
 namespace FiatChamp;
 
-public record AppConfig
+public record AppSettings
 {
     public bool Debug { get; set; }
 

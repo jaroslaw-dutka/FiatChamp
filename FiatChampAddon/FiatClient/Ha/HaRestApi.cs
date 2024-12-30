@@ -1,69 +1,38 @@
-using CoordinateSharp;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using FiatChamp.Ha.Model;
-using Flurl.Http;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Linq;
 
 namespace FiatChamp.Ha;
 
 public class HaRestApi : IHaRestApi
 {
-    private readonly HaConfig _config;
+    private readonly HaSettings _settings;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public HaRestApi(IOptions<HaConfig> config)
+    public HaRestApi(IOptions<HaSettings> config, IHttpClientFactory httpClientFactory)
     {
-        _config = config.Value;
+        _settings = config.Value;
+        _httpClientFactory = httpClientFactory;
     }
 
-    private async Task<JObject> GetConfig()
+    public async Task<HaConfig> GetConfig()
     {
-        return await _config.Url
-            .WithOAuthBearerToken(_config.Token)
-            .AppendPathSegment("config")
-            .GetJsonAsync<JObject>();
-    }
-
-    public async Task<string> GetTimeZone()
-    {
-        var config = await GetConfig();
-
-        return config["time_zone"].ToString();
-    }
-
-    public async Task<HaRestApiUnitSystem> GetUnitSystem()
-    {
-        var config = await GetConfig();
-
-        return config["unit_system"].ToObject<HaRestApiUnitSystem>();
-    }
-
-    public async Task<IReadOnlyList<HaRestApiZone>> GetZones()
-    {
-        var states = await GetStates();
-        var zones = states
-            .Where(state => state.EntityId.StartsWith("zone."))
-            .Select(state => state.AttrTo<HaRestApiZone>())
-            .ToArray();
-
-        return zones;
-    }
-
-    public async Task<IReadOnlyList<HaRestApiZone>> GetZonesAscending(Coordinate inside)
-    {
-        var zones = await GetZones();
-        return zones
-            .Where(zone => zone.Coordinate.Get_Distance_From_Coordinate(inside).Meters <= zone.Radius)
-            .OrderBy(zone => zone.Coordinate.Get_Distance_From_Coordinate(inside).Meters)
-            .ToArray();
+        using var client = GetHttpClient();
+        return await client.GetFromJsonAsync<HaConfig>("config");
     }
 
     public async Task<IReadOnlyList<HaRestApiEntityState>> GetStates()
     {
-        var result = await _config.Url
-            .WithOAuthBearerToken(_config.Token)
-            .AppendPathSegment("states")
-            .GetJsonAsync<HaRestApiEntityState[]>();
+        using var client = GetHttpClient();
+        return await client.GetFromJsonAsync<HaRestApiEntityState[]>("states");
+    }
 
-        return result.ToArray();
+    private HttpClient GetHttpClient()
+    {
+        var client = _httpClientFactory.CreateClient();
+        client.BaseAddress = new Uri(_settings.Url + "/");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
+        return client;
     }
 }
