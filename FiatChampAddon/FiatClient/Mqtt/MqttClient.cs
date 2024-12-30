@@ -1,18 +1,20 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
-using Serilog;
 
 namespace FiatChamp.Mqtt;
 
 public class MqttClient : IMqttClient
 {
+    private readonly ILogger<MqttClient> _logger;
     private readonly MqttSettings _settings;
     private readonly IManagedMqttClient _mqttClient;
 
-    public MqttClient(IOptions<MqttSettings> config)
+    public MqttClient(ILogger<MqttClient> logger, IOptions<MqttSettings> config)
     {
+        _logger = logger;
         _settings = config.Value;
         _mqttClient = new MqttFactory().CreateManagedMqttClient();
     }
@@ -26,7 +28,7 @@ public class MqttClient : IMqttClient
 
         if (string.IsNullOrWhiteSpace(_settings.User) || string.IsNullOrWhiteSpace(_settings.Password))
         {
-            Log.Warning("Mqtt User/Password is EMPTY.");
+            _logger.LogWarning("Mqtt User/Password is EMPTY.");
         }
         else
         {
@@ -45,9 +47,9 @@ public class MqttClient : IMqttClient
 
         await _mqttClient.StartAsync(options);
 
-        _mqttClient.ConnectedAsync += async args => { Log.Information("Mqtt connection successful"); };
+        _mqttClient.ConnectedAsync += async args => { _logger.LogInformation("Mqtt connection successful"); };
 
-        _mqttClient.ConnectingFailedAsync += async args => { Log.Information("Mqtt connection failed: {0}", args.Exception); };
+        _mqttClient.ConnectingFailedAsync += async args => { _logger.LogInformation("Mqtt connection failed: {0}", args.Exception); };
     }
 
     public async Task Sub(string topic, Func<string, Task> callback)
@@ -64,7 +66,7 @@ public class MqttClient : IMqttClient
                 }
                 catch (Exception e)
                 {
-                    Log.Error("{0}", e);
+                    _logger.LogError(e, "Failed to process Mqtt payload.");
                 }
             }
         };

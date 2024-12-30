@@ -1,9 +1,12 @@
 ﻿using FiatChamp;
 using FiatChamp.Fiat;
 using FiatChamp.Ha;
+using FiatChamp.Http;
 using FiatChamp.Mqtt;
+using Flurl.Http.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
@@ -32,6 +35,8 @@ var services = new ServiceCollection();
 
 services.AddHttpClient();
 services.AddLogging(i => i.AddSerilog(logger));
+
+services.AddSingleton(i => new FlurlClientCache().WithDefaults(builder => builder.ConfigureInnerHandler(handler => new PollyRequestHandler(i.GetRequiredService<ILogger<PollyRequestHandler>>(), handler))));
 
 services.Configure<AppSettings>(configuration.GetSection("app"));
 services.Configure<FiatSettings>(configuration.GetSection("fiat"));

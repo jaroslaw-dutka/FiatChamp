@@ -5,16 +5,16 @@ using Amazon.CognitoIdentity;
 using Amazon.Runtime;
 using FiatChamp.Extensions;
 using FiatChamp.Fiat.Model;
-using FiatChamp.Http;
-using Flurl;
 using Flurl.Http;
+using Flurl.Http.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Serilog;
 
 namespace FiatChamp.Fiat;
 
 public class FiatClient : IFiatClient
 {
+    private readonly ILogger<FiatClient> _logger;
     private readonly FiatSettings _settings;
 
     private readonly string _loginApiKey = "3_mOx_J2dRgjXYCdyhchv3b5lhi54eBcdCTX4BI8MORqmZCoQWhA0mV2PTlptLGUQI";
@@ -31,8 +31,11 @@ public class FiatClient : IFiatClient
 
     private (string userUid, ImmutableCredentials awsCredentials)? _loginInfo = null;
 
-    public FiatClient(IOptions<FiatSettings> config)
+    public FiatClient(ILogger<FiatClient> logger, IOptions<FiatSettings> config, IFlurlClientCache flurlClientCache)
     {
+        _logger = logger;
+        _defaultHttpClient = flurlClientCache.Get(string.Empty);
+
         _settings = config.Value;
 
         if (_settings.Brand == FcaBrand.Ram)
@@ -91,8 +94,6 @@ public class FiatClient : IFiatClient
                 _locale = "en_us";
             }
         }
-
-        _defaultHttpClient = new FlurlClient().Configure(settings => { settings.HttpClientFactory = new PollyHttpClientFactory(); });
     }
 
     public async Task LoginAndKeepSessionAlive()
@@ -110,14 +111,14 @@ public class FiatClient : IFiatClient
             {
                 try
                 {
-                    Log.Information("REFRESH SESSION");
+                    _logger.LogInformation("REFRESH SESSION");
                     await Login();
                 }
                 catch (Exception e)
                 {
 
-                    Log.Error("ERROR WHILE REFRESH SESSION");
-                    Log.Debug("{0}", e);
+                    _logger.LogError("ERROR WHILE REFRESH SESSION");
+                    _logger.LogDebug("{0}", e);
                 }
             }
         });
@@ -125,19 +126,19 @@ public class FiatClient : IFiatClient
 
     private async Task Login()
     {
-        var loginResponse = await _loginUrl
-            .WithClient(_defaultHttpClient)
+        var loginResponse = await _defaultHttpClient
+            .Request(_loginUrl)
             .AppendPathSegment("accounts.webSdkBootstrap")
             .SetQueryParam("apiKey", _loginApiKey)
             .WithCookies(_cookieJar)
             .GetJsonAsync<FiatLoginResponse>();
 
-        Log.Debug("{0}", loginResponse.Dump());
+        _logger.LogDebug("{0}", loginResponse.Dump());
 
         loginResponse.ThrowOnError("Login failed.");
 
-        var authResponse = await _loginUrl
-            .WithClient(_defaultHttpClient)
+        var authResponse = await _defaultHttpClient
+            .Request(_loginUrl)
             .AppendPathSegment("accounts.login")
             .WithCookies(_cookieJar)
             .PostUrlEncodedAsync(
@@ -150,12 +151,12 @@ public class FiatClient : IFiatClient
                 }))
             .ReceiveJson<FiatAuthResponse>();
 
-        Log.Debug("{0}", authResponse.Dump());
+        _logger.LogDebug("{0}", authResponse.Dump());
 
         authResponse.ThrowOnError("Authentication failed.");
 
-        var jwtResponse = await _loginUrl
-            .WithClient(_defaultHttpClient)
+        var jwtResponse = await _defaultHttpClient
+            .Request(_loginUrl)
             .AppendPathSegment("accounts.getJWT")
             .SetQueryParams(
                 WithFiatDefaultParameter(new()
@@ -166,12 +167,12 @@ public class FiatClient : IFiatClient
             .WithCookies(_cookieJar)
             .GetJsonAsync<FiatJwtResponse>();
 
-        Log.Debug("{0}", jwtResponse.Dump());
+        _logger.LogDebug("{0}", jwtResponse.Dump());
 
         jwtResponse.ThrowOnError("Authentication failed.");
 
-        var identityResponse = await _tokenUrl
-            .WithClient(_defaultHttpClient)
+        var identityResponse = await _defaultHttpClient
+            .Request(_tokenUrl)
             .WithHeader("content-type", "application/json")
             .WithHeaders(WithAwsDefaultParameter(_apiKey))
             .PostJsonAsync(new
@@ -180,7 +181,7 @@ public class FiatClient : IFiatClient
             })
             .ReceiveJson<FcaIdentityResponse>();
 
-        Log.Debug("{0}", identityResponse.Dump());
+        _logger.LogDebug("{0}", identityResponse.Dump());
 
         identityResponse.ThrowOnError("Identity failed.");
 
@@ -199,7 +200,7 @@ public class FiatClient : IFiatClient
 
     private Dictionary<string, object> WithAwsDefaultParameter(string apiKey, Dictionary<string, object>? parameters = null)
     {
-        var dict = new Dictionary<string, object>()
+        var dict = new Dictionary<string, object>
         {
             { "x-clientapp-name", "CWP" },
             { "x-clientapp-version", "1.0" },
@@ -245,14 +246,15 @@ public class FiatClient : IFiatClient
             pin = Convert.ToBase64String(Encoding.UTF8.GetBytes(pin))
         };
 
-        var pinAuthResponse = await _authUrl
+        var pinAuthResponse = await _defaultHttpClient
+            .Request(_apiUrl)
             .AppendPathSegments("v1", "accounts", userUid, "ignite", "pin", "authenticate")
             .WithHeaders(WithAwsDefaultParameter(_authApiKey))
             .AwsSign(awsCredentials, _awsEndpoint, data)
             .PostJsonAsync(data)
             .ReceiveJson<FcaPinAuthResponse>();
 
-        Log.Debug("{0}", pinAuthResponse.Dump());
+        _logger.LogDebug("{0}", pinAuthResponse.Dump());
 
         var json = new
         {
@@ -260,14 +262,15 @@ public class FiatClient : IFiatClient
             pinAuth = pinAuthResponse.Token
         };
 
-        var commandResponse = await _apiUrl
+        var commandResponse = await _defaultHttpClient
+            .Request(_apiUrl)
             .AppendPathSegments("v1", "accounts", userUid, "vehicles", vin, action)
             .WithHeaders(WithAwsDefaultParameter(_apiKey))
             .AwsSign(awsCredentials, _awsEndpoint, json)
             .PostJsonAsync(json)
             .ReceiveJson<FcaCommandResponse>();
 
-        Log.Debug("{0}", commandResponse.Dump());
+        _logger.LogDebug("{0}", commandResponse.Dump());
     }
 
     public async Task<Vehicle[]> Fetch()
@@ -276,31 +279,31 @@ public class FiatClient : IFiatClient
 
         var (userUid, awsCredentials) = _loginInfo.Value;
 
-        var vehicleResponse = await _apiUrl
-            .WithClient(_defaultHttpClient)
+        var vehicleResponse = await _defaultHttpClient
+            .Request(_apiUrl)
             .AppendPathSegments("v4", "accounts", userUid, "vehicles")
             .SetQueryParam("stage", "ALL")
             .WithHeaders(WithAwsDefaultParameter(_apiKey))
             .AwsSign(awsCredentials, _awsEndpoint)
             .GetJsonAsync<VehicleResponse>();
 
-        Log.Debug("{0}", vehicleResponse.Dump());
+        _logger.LogDebug("{0}", vehicleResponse.Dump());
 
         foreach (var vehicle in vehicleResponse.Vehicles)
         {
-            var vehicleDetails = await _apiUrl
-                .WithClient(_defaultHttpClient)
+            var vehicleDetails = await _defaultHttpClient
+                .Request(_apiUrl)
                 .AppendPathSegments("v2", "accounts", userUid, "vehicles", vehicle.Vin, "status")
                 .WithHeaders(WithAwsDefaultParameter(_apiKey))
                 .AwsSign(awsCredentials, _awsEndpoint)
                 .GetJsonAsync<JsonObject>();
 
-            Log.Debug("{0}", vehicleDetails.Dump());
+            _logger.LogDebug("{0}", vehicleDetails.Dump());
 
             vehicle.Details = vehicleDetails;
 
-            var vehicleLocation = await _apiUrl
-                .WithClient(_defaultHttpClient)
+            var vehicleLocation = await _defaultHttpClient
+                .Request(_apiUrl)
                 .AppendPathSegments("v1", "accounts", userUid, "vehicles", vehicle.Vin, "location", "lastknown")
                 .WithHeaders(WithAwsDefaultParameter(_apiKey))
                 .AwsSign(awsCredentials, _awsEndpoint)
@@ -308,7 +311,7 @@ public class FiatClient : IFiatClient
 
             vehicle.Location = vehicleLocation;
 
-            Log.Debug("{0}", vehicleLocation.Dump());
+            _logger.LogDebug("{0}", vehicleLocation.Dump());
         }
 
         return vehicleResponse.Vehicles;
