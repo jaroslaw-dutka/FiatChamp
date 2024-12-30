@@ -44,7 +44,7 @@ namespace FiatChamp.App
             if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo) 
                 _logger.LogWarning("{brand} support is experimental.", _fiatSettings.Brand);
 
-            await _mqttClient.Connect();
+            await _mqttClient.ConnectAsync();
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -122,8 +122,8 @@ namespace FiatChamp.App
                 _logger.LogInformation("Car is at location: {location}", tracker.Dump());
 
                 _logger.LogDebug("Announce sensor: {sensor}", tracker.Dump());
-                await tracker.Announce();
-                await tracker.PublishState();
+                await tracker.AnnounceAsync();
+                await tracker.PublishStateAsync();
 
                 var unitSystem = await _haClient.GetUnitSystem();
                 _logger.LogInformation("Using unit system: {unit}", unitSystem.Dump());
@@ -190,12 +190,12 @@ namespace FiatChamp.App
                 _logger.LogDebug("Announce sensors: {sensor}", sensors.Dump());
                 _logger.LogInformation("Pushing new sensors and values to Home Assistant");
 
-                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.Announce(); });
+                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.AnnounceAsync(); });
 
                 _logger.LogDebug("Waiting for home assistant to process all sensors");
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
 
-                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishState(); });
+                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishStateAsync(); });
 
                 var lastUpdate = new HaSensor(_mqttClient, "LAST_UPDATE", haDevice)
                 {
@@ -203,8 +203,8 @@ namespace FiatChamp.App
                     DeviceClass = "timestamp"
                 };
 
-                await lastUpdate.Announce();
-                await lastUpdate.PublishState();
+                await lastUpdate.AnnounceAsync();
+                await lastUpdate.PublishStateAsync();
 
                 var haEntities = _persistentHaEntities.GetOrAdd(vehicle.Vin, s =>
                     CreateInteractiveEntities(_fiatClient, _mqttClient, vehicle, haDevice));
@@ -212,7 +212,7 @@ namespace FiatChamp.App
                 foreach (var haEntity in haEntities)
                 {
                     _logger.LogDebug("Announce sensor: {sensor}", haEntity.Dump());
-                    await haEntity.Announce();
+                    await haEntity.AnnounceAsync();
                 }
             }
         }

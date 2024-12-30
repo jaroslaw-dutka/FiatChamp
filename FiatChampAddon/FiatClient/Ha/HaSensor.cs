@@ -20,12 +20,12 @@ public class HaSensor : HaEntity
         _configTopic = $"homeassistant/sensor/{_id}/config";
     }
 
-    public override async Task PublishState() => 
-        await _mqttClient.Pub(_stateTopic, $"{Value}");
+    public override async Task PublishStateAsync() => 
+        await _mqttClient.PubAsync(_stateTopic, $"{Value}");
 
-    public override async Task Announce()
+    public override async Task AnnounceAsync()
     {
-        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
+        await _mqttClient.PubJsonAsync(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,

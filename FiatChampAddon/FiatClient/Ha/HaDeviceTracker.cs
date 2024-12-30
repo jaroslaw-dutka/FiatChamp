@@ -20,10 +20,10 @@ public class HaDeviceTracker : HaEntity
         _attributesTopic = $"homeassistant/sensor/{_id}/attributes";
     }
 
-    public override async Task PublishState()
+    public override async Task PublishStateAsync()
     {
-        await _mqttClient.Pub(_stateTopic, $"{StateValue}");
-        await _mqttClient.PubJson(_attributesTopic, new HaLocation
+        await _mqttClient.PubAsync(_stateTopic, $"{StateValue}");
+        await _mqttClient.PubJsonAsync(_attributesTopic, new HaLocation
         {
             Latitude = Lat,
             Longitude = Lon,
@@ -32,9 +32,9 @@ public class HaDeviceTracker : HaEntity
         });
     }
 
-    public override async Task Announce()
+    public override async Task AnnounceAsync()
     {
-        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
+        await _mqttClient.PubJsonAsync(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,

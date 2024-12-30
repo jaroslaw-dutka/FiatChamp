@@ -10,6 +10,6 @@ public static class MqttClientExtensions
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static async Task PubJson<T>(this IMqttClient client, string topic, T payload) => 
-        await client.Pub(topic, JsonSerializer.Serialize(payload, SerializerOptions));
+    public static async Task PubJsonAsync<T>(this IMqttClient client, string topic, T payload) => 
+        await client.PubAsync(topic, JsonSerializer.Serialize(payload, SerializerOptions));
 }

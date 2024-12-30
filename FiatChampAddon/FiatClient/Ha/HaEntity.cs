@@ -20,6 +20,6 @@ public abstract class HaEntity
         _id = $"{haDevice.Identifiers.First()}_{name}";
     }
 
-    public abstract Task PublishState();
-    public abstract Task Announce();
+    public abstract Task PublishStateAsync();
+    public abstract Task AnnounceAsync();
 }

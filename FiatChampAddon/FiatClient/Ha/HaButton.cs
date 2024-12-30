@@ -12,14 +12,14 @@ public class HaButton : HaEntity
     {
         _commandTopic = $"homeassistant/button/{_id}/set";
         _configTopic = $"homeassistant/button/{_id}/config";
-        _ = mqttClient.Sub(_commandTopic, async _ => { await onPressedCommand.Invoke(this); });
+        _ = mqttClient.SubAsync(_commandTopic, async _ => { await onPressedCommand.Invoke(this); });
     }
 
-    public override Task PublishState() =>
+    public override Task PublishStateAsync() =>
         Task.CompletedTask;
 
-    public override async Task Announce() =>
-        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
+    public override async Task AnnounceAsync() =>
+        await _mqttClient.PubJsonAsync(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,

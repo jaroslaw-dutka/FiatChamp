@@ -14,7 +14,7 @@ public class HaSwitch : HaEntity
     public void SwitchTo(bool onOrOff)
     {
         IsOn = onOrOff;
-        _ = PublishState();
+        _ = PublishStateAsync();
     }
 
     public HaSwitch(IMqttClient mqttClient, string name, HaDevice haDevice, Func<HaSwitch, Task> onSwitchCommand)
@@ -24,7 +24,7 @@ public class HaSwitch : HaEntity
         _stateTopic = $"homeassistant/switch/{_id}/state";
         _configTopic = $"homeassistant/switch/{_id}/config";
 
-        _ = mqttClient.Sub(_commandTopic, async message =>
+        _ = mqttClient.SubAsync(_commandTopic, async message =>
         {
             SwitchTo(message == "ON");
             await Task.Delay(100);
@@ -32,11 +32,11 @@ public class HaSwitch : HaEntity
         });
     }
 
-    public override async Task PublishState() => 
-        await _mqttClient.Pub(_stateTopic, IsOn ? "ON" : "OFF");
+    public override async Task PublishStateAsync() => 
+        await _mqttClient.PubAsync(_stateTopic, IsOn ? "ON" : "OFF");
 
-    public override async Task Announce() =>
-        await _mqttClient.PubJson(_configTopic, new HaAnnouncement
+    public override async Task AnnounceAsync() =>
+        await _mqttClient.PubJsonAsync(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,
