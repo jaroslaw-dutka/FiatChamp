@@ -38,198 +38,188 @@ namespace FiatChamp.App
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Delay start for seconds: {0}", _appSettings.StartDelaySeconds);
+            _logger.LogInformation("Delay start for seconds: {delay}", _appSettings.StartDelaySeconds);
             await Task.Delay(TimeSpan.FromSeconds(_appSettings.StartDelaySeconds), cancellationToken);
 
-            if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
-            {
-                _logger.LogWarning("{0} support is experimental.", _fiatSettings.Brand);
-            }
+            if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo) 
+                _logger.LogWarning("{brand} support is experimental.", _fiatSettings.Brand);
 
             await _mqttClient.Connect();
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Now fetching new data...");
+                await TryFetchData(cancellationToken);
+                WaitHandle.WaitAny([cancellationToken.WaitHandle, _forceLoopResetEvent], TimeSpan.FromMinutes(_appSettings.RefreshInterval));
+            }
+        }
 
-                GC.Collect();
+        private async Task TryFetchData(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await FetchData(cancellationToken);
+            }
+            catch (FlurlHttpException httpException)
+            {
+                _logger.LogWarning("Error connecting to the FIAT API.\nThis can happen from time to time. Retrying in {interval} minutes.", _appSettings.RefreshInterval);
+                _logger.LogDebug(httpException, "STATUS: {status}, MESSAGE: {message}", httpException.StatusCode, httpException.Message);
 
-                try
+                var task = httpException.Call?.Response?.GetStringAsync();
+
+                if (task != null) 
+                    _logger.LogDebug("RESPONSE: {response}", await task);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, e.Message);
+            }
+
+            _logger.LogInformation("Fetching COMPLETED. Next update in {delay} minutes.", _appSettings.RefreshInterval);
+        }
+
+        private async Task FetchData(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Now fetching new data...");
+
+            GC.Collect();
+
+            await _fiatClient.LoginAndKeepSessionAlive();
+
+            foreach (var vehicle in await _fiatClient.Fetch())
+            {
+                _logger.LogInformation("FOUND CAR: {vin}", vehicle.Vin);
+
+                if (_appSettings.AutoRefreshBattery) 
+                    await TrySendCommand(_fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vin);
+
+                if (_appSettings.AutoRefreshLocation) 
+                    await TrySendCommand(_fiatClient, FiatCommands.VF, vehicle.Vin);
+
+                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+
+                var haDevice = new HaDevice
                 {
-                    await _fiatClient.LoginAndKeepSessionAlive();
+                    Name = string.IsNullOrEmpty(vehicle.Nickname) ? "Car" : vehicle.Nickname,
+                    Identifiers = [vehicle.Vin],
+                    Manufacturer = vehicle.Make,
+                    Model = vehicle.ModelDescription,
+                    Version = "1.0"
+                };
 
-                    foreach (var vehicle in await _fiatClient.Fetch())
+                var currentCarLocation = new Coordinate(vehicle.Location.Latitude, vehicle.Location.Longitude);
+
+                var zones = await _haClient.GetZonesAscending(currentCarLocation);
+
+                _logger.LogDebug("Zones: {zones}", zones.Dump());
+
+                var tracker = new HaDeviceTracker(_mqttClient, "CAR_LOCATION", haDevice)
+                {
+                    Lat = currentCarLocation.Latitude.ToDouble(),
+                    Lon = currentCarLocation.Longitude.ToDouble(),
+                    StateValue = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation
+                };
+
+                _logger.LogInformation("Car is at location: {location}", tracker.Dump());
+
+                _logger.LogDebug("Announce sensor: {sensor}", tracker.Dump());
+                await tracker.Announce();
+                await tracker.PublishState();
+
+                var unitSystem = await _haClient.GetUnitSystem();
+                _logger.LogInformation("Using unit system: {unit}", unitSystem.Dump());
+
+                var shouldConvertKmToMiles = _appSettings.ConvertKmToMiles || unitSystem.Length != "km";
+                _logger.LogInformation("Convert km -> miles ? {shouldConvertKmToMiles}", shouldConvertKmToMiles);
+
+                var flattenDetails = vehicle.Details.Flatten("car");
+                var sensors = flattenDetails.Select(detail =>
+                {
+                    var sensor = new HaSensor(_mqttClient, detail.Key, haDevice)
                     {
-                        _logger.LogInformation("FOUND CAR: {0}", vehicle.Vin);
+                        Value = detail.Value
+                    };
 
-                        if (_appSettings.AutoRefreshBattery)
+                    if (detail.Key.EndsWith("_value"))
+                    {
+                        var unitKey = detail.Key.Replace("_value", "_unit");
+
+                        flattenDetails.TryGetValue(unitKey, out var tmpUnit);
+
+                        if (tmpUnit == "km")
                         {
-                            await TrySendCommand(_fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vin);
-                        }
+                            sensor.DeviceClass = "distance";
 
-                        if (_appSettings.AutoRefreshLocation)
-                        {
-                            await TrySendCommand(_fiatClient, FiatCommands.VF, vehicle.Vin);
-                        }
-
-                        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
-
-                        var vehicleName = string.IsNullOrEmpty(vehicle.Nickname) ? "Car" : vehicle.Nickname;
-
-                        var haDevice = new HaDevice()
-                        {
-                            Name = vehicleName,
-                            Identifiers = new List<string> { vehicle.Vin },
-                            Manufacturer = vehicle.Make,
-                            Model = vehicle.ModelDescription,
-                            Version = "1.0"
-                        };
-
-                        var currentCarLocation = new Coordinate(vehicle.Location.Latitude, vehicle.Location.Longitude);
-
-                        var zones = await _haClient.GetZonesAscending(currentCarLocation);
-
-                        _logger.LogDebug("Zones: {0}", zones.Dump());
-
-                        var tracker = new HaDeviceTracker(_mqttClient, "CAR_LOCATION", haDevice)
-                        {
-                            Lat = currentCarLocation.Latitude.ToDouble(),
-                            Lon = currentCarLocation.Longitude.ToDouble(),
-                            StateValue = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation
-                        };
-
-                        _logger.LogInformation("Car is at location: {0}", tracker.Dump());
-
-                        _logger.LogDebug("Announce sensor: {0}", tracker.Dump());
-                        await tracker.Announce();
-                        await tracker.PublishState();
-
-                        var compactDetails = vehicle.Details.Flatten("car");
-                        var unitSystem = await _haClient.GetUnitSystem();
-
-                        _logger.LogInformation("Using unit system: {0}", unitSystem.Dump());
-
-                        var shouldConvertKmToMiles = _appSettings.ConvertKmToMiles || unitSystem.Length != "km";
-
-                        _logger.LogInformation("Convert km -> miles ? {0}", shouldConvertKmToMiles);
-
-                        var sensors = compactDetails.Select(detail =>
-                        {
-                            var sensor = new HaSensor(_mqttClient, detail.Key, haDevice)
+                            if (shouldConvertKmToMiles && int.TryParse(detail.Value, out var kmValue))
                             {
-                                Value = detail.Value
-                            };
-
-                            if (detail.Key.EndsWith("_value"))
-                            {
-                                var unitKey = detail.Key.Replace("_value", "_unit");
-
-                                compactDetails.TryGetValue(unitKey, out var tmpUnit);
-
-                                if (tmpUnit == "km")
-                                {
-                                    sensor.DeviceClass = "distance";
-
-                                    if (shouldConvertKmToMiles && int.TryParse(detail.Value, out var kmValue))
-                                    {
-                                        var miValue = Math.Round(kmValue * 0.62137, 2);
-                                        sensor.Value = miValue.ToString(CultureInfo.InvariantCulture);
-                                        tmpUnit = "mi";
-                                    }
-                                }
-
-                                switch (tmpUnit)
-                                {
-                                    case "volts":
-                                        sensor.DeviceClass = "voltage";
-                                        sensor.Unit = "V";
-                                        break;
-                                    case null or "null":
-                                        sensor.Unit = "";
-                                        break;
-                                    default:
-                                        sensor.Unit = tmpUnit;
-                                        break;
-                                }
+                                var miValue = Math.Round(kmValue * 0.62137, 2);
+                                sensor.Value = miValue.ToString(CultureInfo.InvariantCulture);
+                                tmpUnit = "mi";
                             }
-
-                            return sensor;
-                        }).ToDictionary(k => k.Name, v => v);
-
-                        if (sensors.TryGetValue("car_evInfo_battery_stateOfCharge", out var stateOfChargeSensor))
-                        {
-                            stateOfChargeSensor.DeviceClass = "battery";
-                            stateOfChargeSensor.Unit = "%";
                         }
 
-                        if (sensors.TryGetValue("car_evInfo_battery_timeToFullyChargeL2", out var timeToFullyChargeSensor))
+                        switch (tmpUnit)
                         {
-                            timeToFullyChargeSensor.DeviceClass = "duration";
-                            timeToFullyChargeSensor.Unit = "min";
-                        }
-
-                        _logger.LogDebug("Announce sensors: {0}", sensors.Dump());
-                        _logger.LogInformation("Pushing new sensors and values to Home Assistant");
-
-                        await Parallel.ForEachAsync(sensors.Values, async (sensor, token) => { await sensor.Announce(); });
-
-                        _logger.LogDebug("Waiting for home assistant to process all sensors");
-                        await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-
-                        await Parallel.ForEachAsync(sensors.Values, async (sensor, token) => { await sensor.PublishState(); });
-
-                        var lastUpdate = new HaSensor(_mqttClient, "LAST_UPDATE", haDevice)
-                        {
-                            Value = DateTime.Now.ToString("O"),
-                            DeviceClass = "timestamp"
-                        };
-
-                        await lastUpdate.Announce();
-                        await lastUpdate.PublishState();
-
-                        var haEntities = _persistentHaEntities.GetOrAdd(vehicle.Vin, s =>
-                            CreateInteractiveEntities(_fiatClient, _mqttClient, vehicle, haDevice));
-
-                        foreach (var haEntity in haEntities)
-                        {
-                            _logger.LogDebug("Announce sensor: {0}", haEntity.Dump());
-                            await haEntity.Announce();
+                            case "volts":
+                                sensor.DeviceClass = "voltage";
+                                sensor.Unit = "V";
+                                break;
+                            case null or "null":
+                                sensor.Unit = "";
+                                break;
+                            default:
+                                sensor.Unit = tmpUnit;
+                                break;
                         }
                     }
-                }
-                catch (FlurlHttpException httpException)
+
+                    return sensor;
+                }).ToDictionary(k => k.Name, v => v);
+
+                if (sensors.TryGetValue("car_evInfo_battery_stateOfCharge", out var stateOfChargeSensor))
                 {
-                    _logger.LogWarning($"Error connecting to the FIAT API. \n" +
-                                $"This can happen from time to time. Retrying in {_appSettings.RefreshInterval} minutes.");
-
-                    _logger.LogDebug("ERROR: {0}", httpException.Message);
-                    _logger.LogDebug("STATUS: {0}", httpException.StatusCode);
-
-                    var task = httpException.Call?.Response?.GetStringAsync();
-
-                    if (task != null)
-                    {
-                        _logger.LogDebug("RESPONSE: {0}", await task);
-                    }
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError("{0}", e);
+                    stateOfChargeSensor.DeviceClass = "battery";
+                    stateOfChargeSensor.Unit = "%";
                 }
 
-                _logger.LogInformation("Fetching COMPLETED. Next update in {0} minutes.", _appSettings.RefreshInterval);
-
-                WaitHandle.WaitAny(new[]
+                if (sensors.TryGetValue("car_evInfo_battery_timeToFullyChargeL2", out var timeToFullyChargeSensor))
                 {
-                    cancellationToken.WaitHandle,
-                    _forceLoopResetEvent
-                }, TimeSpan.FromMinutes(_appSettings.RefreshInterval));
+                    timeToFullyChargeSensor.DeviceClass = "duration";
+                    timeToFullyChargeSensor.Unit = "min";
+                }
+
+                _logger.LogDebug("Announce sensors: {sensor}", sensors.Dump());
+                _logger.LogInformation("Pushing new sensors and values to Home Assistant");
+
+                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.Announce(); });
+
+                _logger.LogDebug("Waiting for home assistant to process all sensors");
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+
+                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishState(); });
+
+                var lastUpdate = new HaSensor(_mqttClient, "LAST_UPDATE", haDevice)
+                {
+                    Value = DateTime.Now.ToString("O"),
+                    DeviceClass = "timestamp"
+                };
+
+                await lastUpdate.Announce();
+                await lastUpdate.PublishState();
+
+                var haEntities = _persistentHaEntities.GetOrAdd(vehicle.Vin, s =>
+                    CreateInteractiveEntities(_fiatClient, _mqttClient, vehicle, haDevice));
+
+                foreach (var haEntity in haEntities)
+                {
+                    _logger.LogDebug("Announce sensor: {sensor}", haEntity.Dump());
+                    await haEntity.Announce();
+                }
             }
         }
 
         private async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, string vin)
         {
-            _logger.LogInformation("SEND COMMAND {0}: ", command.Message);
+            _logger.LogInformation("SEND COMMAND {command}: ", command.Message);
 
             if (string.IsNullOrWhiteSpace(_fiatSettings.Pin))
             {
@@ -240,8 +230,7 @@ namespace FiatChamp.App
 
             if (command.IsDangerous && !_appSettings.EnableDangerousCommands)
             {
-                _logger.LogWarning("{0} not sent. " +
-                            "Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
+                _logger.LogWarning("{command} not sent. Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
                 return false;
             }
 
@@ -249,12 +238,12 @@ namespace FiatChamp.App
             {
                 await fiatClient.SendCommand(vin, command.Message, pin, command.Action);
                 await Task.Delay(TimeSpan.FromSeconds(5));
-                _logger.LogInformation("Command: {0} SUCCESSFUL", command.Message);
+                _logger.LogInformation("Command: {command} SUCCESSFUL", command.Message);
             }
             catch (Exception e)
             {
-                _logger.LogError("Command: {0} ERROR. Maybe wrong pin?", command.Message);
-                _logger.LogDebug("{0}", e);
+                _logger.LogError("Command: {command} ERROR. Maybe wrong pin?", command.Message);
+                _logger.LogDebug(e, e.Message);
                 return false;
             }
 
@@ -311,8 +300,8 @@ namespace FiatChamp.App
                     _forceLoopResetEvent.Set();
             });
 
-            return new HaEntity[]
-            {
+            return
+            [
                 hvacSwitch,
                 trunkSwitch,
                 chargeNowButton,
@@ -321,7 +310,7 @@ namespace FiatChamp.App
                 updateLocationButton,
                 lockSwitch,
                 batteryRefreshButton
-            };
+            ];
         }
     }
 }
