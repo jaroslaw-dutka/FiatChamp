@@ -1,6 +1,6 @@
-﻿namespace FiatChamp;
+﻿namespace FiatChamp.App;
 
-public interface IApp
+public interface IAppService
 {
     Task RunAsync(CancellationToken cancellationToken);
 }

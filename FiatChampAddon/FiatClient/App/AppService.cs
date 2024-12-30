@@ -11,9 +11,9 @@ using FiatChamp.Fiat.Model;
 using FiatChamp.Extensions;
 using Microsoft.Extensions.Logging;
 
-namespace FiatChamp
+namespace FiatChamp.App
 {
-    public class App : IApp
+    public class AppService : IAppService
     {
         private readonly AutoResetEvent _forceLoopResetEvent = new(false);
         private readonly ConcurrentDictionary<string, IEnumerable<HaEntity>> _persistentHaEntities = new();
@@ -21,12 +21,12 @@ namespace FiatChamp
         private readonly AppSettings _appSettings;
         private readonly FiatSettings _fiatSettings;
 
-        private readonly ILogger<App> _logger;
+        private readonly ILogger<AppService> _logger;
         private readonly IFiatClient _fiatClient;
         private readonly IMqttClient _mqttClient;
         private readonly IHaRestApi _haClient;
 
-        public App(ILogger<App> logger, IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
+        public AppService(ILogger<AppService> logger, IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IMqttClient mqttClient, IHaRestApi haClient)
         {
             _appSettings = appConfig.Value;
             _fiatSettings = fiatConfig.Value;
@@ -45,7 +45,7 @@ namespace FiatChamp
             {
                 _logger.LogWarning("{0} support is experimental.", _fiatSettings.Brand);
             }
-            
+
             await _mqttClient.Connect();
 
             while (!cancellationToken.IsCancellationRequested)
@@ -109,7 +109,7 @@ namespace FiatChamp
 
                         _logger.LogInformation("Using unit system: {0}", unitSystem.Dump());
 
-                        var shouldConvertKmToMiles = (_appSettings.ConvertKmToMiles || unitSystem.Length != "km");
+                        var shouldConvertKmToMiles = _appSettings.ConvertKmToMiles || unitSystem.Length != "km";
 
                         _logger.LogInformation("Convert km -> miles ? {0}", shouldConvertKmToMiles);
 

@@ -1,15 +1,11 @@
-﻿using FiatChamp;
+﻿using FiatChamp.App;
 using FiatChamp.Fiat;
 using FiatChamp.Ha;
 using FiatChamp.Http;
+using FiatChamp.Logging;
 using FiatChamp.Mqtt;
-using Flurl.Http.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Serilog;
-using Serilog.Events;
 
 var cts = new CancellationTokenSource();
 Console.CancelKeyPress += delegate
@@ -23,37 +19,18 @@ var configuration = new ConfigurationBuilder()
     .AddUserSecrets<Program>()
     .Build();
 
-var appConfig = new AppSettings();
-configuration.GetSection("app").Bind(appConfig);
-
-var logger = new LoggerConfiguration()
-    .MinimumLevel.Is(appConfig.Debug ? LogEventLevel.Debug : LogEventLevel.Information)
-    .WriteTo.Console()
-    .CreateLogger();
-
 var services = new ServiceCollection();
 
-services.AddHttpClient();
-services.AddLogging(i => i.AddSerilog(logger));
+services.AddLogger(configuration);
+services.AddHttp(configuration);
 
-services.AddSingleton(i => new FlurlClientCache().WithDefaults(builder => builder.ConfigureInnerHandler(handler => new PollyRequestHandler(i.GetRequiredService<ILogger<PollyRequestHandler>>(), handler))));
-
-services.Configure<AppSettings>(configuration.GetSection("app"));
-services.Configure<FiatSettings>(configuration.GetSection("fiat"));
-services.Configure<MqttSettings>(configuration.GetSection("mqtt"));
-services.Configure<HaSettings>(configuration.GetSection("ha"));
-
-services.AddSingleton<IApp, App>();
-services.AddSingleton<FiatClient>();
-services.AddSingleton<FiatClientFake>();
-services.AddSingleton<IFiatClient>(s => s.GetService<IOptions<AppSettings>>().Value.FakeApi
-    ? s.GetService<FiatClientFake>()
-    : s.GetService<FiatClient>());
-services.AddSingleton<IMqttClient, MqttClient>();
-services.AddSingleton<IHaRestApi, HaRestApi>();
+services.AddFiat(configuration);
+services.AddHa(configuration);
+services.AddMqtt(configuration);
+services.AddApp(configuration);
 
 var provider = services.BuildServiceProvider();
 
-var app = provider.GetRequiredService<IApp>();
+var app = provider.GetRequiredService<IAppService>();
 if (!cts.IsCancellationRequested)
     await app.RunAsync(cts.Token);

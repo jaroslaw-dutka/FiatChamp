@@ -1,11 +1,11 @@
-namespace FiatChamp;
+namespace FiatChamp.App;
 
 public record AppSettings
 {
     public bool Debug { get; set; }
 
     public bool FakeApi { get; set; }
-    
+
     public int RefreshInterval { get; set; }
 
     public string CarUnknownLocation { get; set; }
