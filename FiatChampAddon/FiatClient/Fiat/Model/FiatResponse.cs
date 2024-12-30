@@ -1,24 +1,44 @@
-public class FiatResponse
+using System.Text.Json.Serialization;
+
+namespace FiatChamp.Fiat.Model;
+
+public class FiatResponse : IFiatResponse
 {
-  public string CallId { get; set; }
-  public long ErrorCode { get; set; }
-  public string ErrorDetails { get; set; }
-  public string ErrorMessage { get; set; }
-  public long ApiVersion { get; set; }
-  public long StatusCode { get; set; }
-  public string StatusReason { get; set; }
-  public DateTimeOffset Time { get; set; }
+    [JsonPropertyName("callId")]
+    public string CallId { get; set; }
 
-  public bool CheckForError()
-  {
-    return StatusCode != 200;
-  }
+    [JsonPropertyName("errorCode")]
+    public int ErrorCode { get; set; }
 
-  public void ThrowOnError(string message)
-  {
-    if (CheckForError())
+    [JsonPropertyName("errorDetails")]
+    public string ErrorDetails { get; set; }
+
+    [JsonPropertyName("errorMessage")]
+    public string ErrorMessage { get; set; }
+
+    [JsonPropertyName("apiVersion")]
+    public int ApiVersion { get; set; }
+
+    [JsonPropertyName("statusCode")]
+    public int StatusCode { get; set; }
+
+    [JsonPropertyName("statusReason")]
+    public string StatusReason { get; set; }
+
+    [JsonPropertyName("time")]
+    public DateTime Time { get; set; }
+
+    [JsonPropertyName("hasGmid")]
+    public string HasGmid { get; set; }
+
+    [JsonPropertyName("ignoredParams")]
+    public List<FiatIgnoredParam> IgnoredParams { get; set; }
+
+    public bool CheckForError() => StatusCode != 200;
+
+    public void ThrowOnError(string message)
     {
-      throw new Exception(message + $" {this.ErrorCode} {this.StatusReason} {this.ErrorMessage}");
+        if (CheckForError())
+            throw new Exception(message + $" {ErrorCode} {StatusReason} {ErrorMessage}");
     }
-  }
 }

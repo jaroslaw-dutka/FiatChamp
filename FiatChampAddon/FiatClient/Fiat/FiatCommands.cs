@@ -1,3 +1,5 @@
+using FiatChamp.Fiat.Model;
+
 public class FiatCommands
 {
     public static readonly FiatCommand DEEPREFRESH = new() { Action = "ev", Message = "DEEPREFRESH" };

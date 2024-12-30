@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 
-public class FiatJwtResponse : FiatResponse
+namespace FiatChamp.Fiat.Model;
+
+public class FiatTokenResponse : FiatResponse
 {
     [JsonPropertyName("id_token")] 
     public string IdToken { get; set; }

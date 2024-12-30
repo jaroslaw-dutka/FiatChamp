@@ -1,3 +1,5 @@
+namespace FiatChamp.Fiat.Model;
+
 public class FiatCommand
 {
     public bool IsDangerous { get; set; }

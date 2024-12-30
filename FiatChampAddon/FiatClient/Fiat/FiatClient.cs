@@ -4,6 +4,7 @@ using Amazon;
 using Amazon.CognitoIdentity;
 using Amazon.Runtime;
 using FiatChamp.Extensions;
+using FiatChamp.Fiat.Entities;
 using FiatChamp.Fiat.Model;
 using Flurl.Http;
 using Flurl.Http.Configuration;
@@ -131,7 +132,7 @@ public class FiatClient : IFiatClient
             .AppendPathSegment("accounts.webSdkBootstrap")
             .SetQueryParam("apiKey", _loginApiKey)
             .WithCookies(_cookieJar)
-            .GetJsonAsync<FiatLoginResponse>();
+            .GetJsonAsync<FiatBootstrapResponse>();
 
         _logger.LogDebug("{0}", loginResponse.Dump());
 
@@ -149,7 +150,7 @@ public class FiatClient : IFiatClient
                     { "sessionExpiration", TimeSpan.FromMinutes(5).TotalSeconds },
                     { "include", "profile,data,emails,subscriptions,preferences" },
                 }))
-            .ReceiveJson<FiatAuthResponse>();
+            .ReceiveJson<FiatLoginResponse>();
 
         _logger.LogDebug("{0}", authResponse.Dump());
 
@@ -165,7 +166,7 @@ public class FiatClient : IFiatClient
                     { "login_token", authResponse.SessionInfo.LoginToken }
                 }))
             .WithCookies(_cookieJar)
-            .GetJsonAsync<FiatJwtResponse>();
+            .GetJsonAsync<FiatTokenResponse>();
 
         _logger.LogDebug("{0}", jwtResponse.Dump());
 
@@ -273,9 +274,11 @@ public class FiatClient : IFiatClient
         _logger.LogDebug("{0}", commandResponse.Dump());
     }
 
-    public async Task<Vehicle[]> Fetch()
+    public async Task<List<VehicleInfo>> Fetch()
     {
         ArgumentNullException.ThrowIfNull(_loginInfo);
+
+        var result = new List<VehicleInfo>();
 
         var (userUid, awsCredentials) = _loginInfo.Value;
 
@@ -291,29 +294,29 @@ public class FiatClient : IFiatClient
 
         foreach (var vehicle in vehicleResponse.Vehicles)
         {
-            var vehicleDetails = await _defaultHttpClient
-                .Request(_apiUrl)
-                .AppendPathSegments("v2", "accounts", userUid, "vehicles", vehicle.Vin, "status")
-                .WithHeaders(WithAwsDefaultParameter(_apiKey))
-                .AwsSign(awsCredentials, _awsEndpoint)
-                .GetJsonAsync<JsonObject>();
+            var info = new VehicleInfo
+            {
+                Vehicle = vehicle,
+                Details = await _defaultHttpClient
+                    .Request(_apiUrl)
+                    .AppendPathSegments("v2", "accounts", userUid, "vehicles", vehicle.Vin, "status")
+                    .WithHeaders(WithAwsDefaultParameter(_apiKey))
+                    .AwsSign(awsCredentials, _awsEndpoint)
+                    .GetJsonAsync<JsonObject>(),
+                Location = await _defaultHttpClient
+                    .Request(_apiUrl)
+                    .AppendPathSegments("v1", "accounts", userUid, "vehicles", vehicle.Vin, "location", "lastknown")
+                    .WithHeaders(WithAwsDefaultParameter(_apiKey))
+                    .AwsSign(awsCredentials, _awsEndpoint)
+                    .GetJsonAsync<VehicleLocation>()
+            };
 
-            _logger.LogDebug("{0}", vehicleDetails.Dump());
+            _logger.LogDebug(info.Details.Dump());
+            _logger.LogDebug(info.Location.Dump());
 
-            vehicle.Details = vehicleDetails;
-
-            var vehicleLocation = await _defaultHttpClient
-                .Request(_apiUrl)
-                .AppendPathSegments("v1", "accounts", userUid, "vehicles", vehicle.Vin, "location", "lastknown")
-                .WithHeaders(WithAwsDefaultParameter(_apiKey))
-                .AwsSign(awsCredentials, _awsEndpoint)
-                .GetJsonAsync<VehicleLocation>();
-
-            vehicle.Location = vehicleLocation;
-
-            _logger.LogDebug("{0}", vehicleLocation.Dump());
+            result.Add(info);
         }
 
-        return vehicleResponse.Vehicles;
+        return result;
     }
 }

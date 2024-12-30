@@ -1,3 +1,5 @@
+namespace FiatChamp.Fiat.Model;
+
 public class FcaCommandResponse
 {
     public string Command { get; set; }
