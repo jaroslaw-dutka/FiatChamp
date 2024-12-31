@@ -219,6 +219,21 @@ public class FiatClient : IFiatClient
         return result;
     }
 
+    public async Task<NotificationsResponse> GetNotifications()
+    {
+        var (userUid, awsCredentials) = _loginInfo.Value;
+
+        return await _httpClient
+            .Request(_apiConfig.ApiUrl)
+            .AppendPathSegments("v4", "accounts", userUid, "notifications", "summary")
+            .SetQueryParam("brand", "ALL")
+            .SetQueryParam("since", 1732399706408)
+            .SetQueryParam("till", 1735647290831)
+            .WithHeaders(WithAwsDefaultParameter(_apiConfig.ApiKey))
+            .AwsSign(awsCredentials, _apiConfig.AwsEndpoint)
+            .GetJsonAsync<NotificationsResponse>();
+    }
+
     private Dictionary<string, object> WithAwsDefaultParameter(string apiKey, Dictionary<string, object>? parameters = null)
     {
         var dict = new Dictionary<string, object>
