@@ -33,7 +33,7 @@ public class FiatClient : IFiatClient
         _httpClient = flurlClientCache.GetOrAdd(string.Empty);
     }
 
-    public async Task LoginAndKeepSessionAlive()
+    public async Task LoginAndKeepSessionAliveAsync()
     {
         if (_loginInfo is not null)
             return;
@@ -135,7 +135,7 @@ public class FiatClient : IFiatClient
             res.Credentials.SessionToken));
     }
 
-    public async Task SendCommand(string vin, string command, string pin, string action)
+    public async Task SendCommandAsync(string vin, string command, string pin, string action)
     {
         ArgumentNullException.ThrowIfNull(_loginInfo);
 
@@ -173,7 +173,7 @@ public class FiatClient : IFiatClient
         _logger.LogDebug(commandResponse.Dump());
     }
 
-    public async Task<List<VehicleInfo>> Fetch()
+    public async Task<List<VehicleInfo>> FetchAsync()
     {
         ArgumentNullException.ThrowIfNull(_loginInfo);
 

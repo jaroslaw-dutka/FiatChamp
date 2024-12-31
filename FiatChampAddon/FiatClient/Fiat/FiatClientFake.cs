@@ -6,17 +6,17 @@ namespace FiatChamp.Fiat;
 
 public class FiatClientFake : IFiatClient
 {
-    public Task LoginAndKeepSessionAlive()
+    public Task LoginAndKeepSessionAliveAsync()
     {
         return Task.CompletedTask;
     }
 
-    public Task SendCommand(string vin, string command, string pin, string action)
+    public Task SendCommandAsync(string vin, string command, string pin, string action)
     {
         return Task.CompletedTask;
     }
 
-    public Task<List<VehicleInfo>> Fetch()
+    public Task<List<VehicleInfo>> FetchAsync()
     {
         var info = new VehicleInfo
         {
