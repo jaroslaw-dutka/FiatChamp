@@ -47,7 +47,7 @@ public class FiatClient : IFiatClient
         var url = AwsSigner.SignQuery(_loginInfo.Value.awsCredentials, "GET", uri, DateTime.UtcNow, _apiConfig.AwsEndpoint.SystemName, "iotdata", contentHash);
 
         var builder = new MqttClientOptionsBuilder()
-            .WithCleanSession()
+            .WithClientId("NGI1OTlmNTEtNGQyNC01NQ==")
             .WithWebSocketServer(builder =>
             {
                 builder.WithUri(url);
@@ -55,7 +55,10 @@ public class FiatClient : IFiatClient
                 {
                     { "host", uri.Host }
                 });
-            });
+            })
+            .WithTls()
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
+            .WithCleanSession();
         
         var options = new ManagedMqttClientOptionsBuilder()
             .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
@@ -68,22 +71,29 @@ public class FiatClient : IFiatClient
         client.ApplicationMessageReceivedAsync += async args =>
         {
             var msg = args.ApplicationMessage;
-            _logger.LogInformation(msg.Topic + ": " + Encoding.UTF8.GetString(msg.Payload));
+            var payload = msg.ConvertPayloadToString();
+            _logger.LogInformation(msg.Topic + ": " + payload);
         };
 
         client.ConnectedAsync += args =>
         {
-            var aaa = 2;
+            _logger.LogInformation("Connection to mqtt succeeded: " + args.ConnectResult.ReasonString);
             return Task.CompletedTask;
         };
 
         client.ConnectingFailedAsync += args =>
         {
-            var aaa = 2;
+            _logger.LogInformation("Connection to mqtt failed: " + args.ConnectResult.ReasonString);
             return Task.CompletedTask;
         };
 
-        await client.SubscribeAsync("#");
+        client.DisconnectedAsync += args =>
+        {
+            _logger.LogInformation("Disconnected from mqtt" + args.ReasonString);
+            return Task.CompletedTask;
+        };
+
+        await client.SubscribeAsync("channels/" + _loginInfo.Value.userUid + "/+/notifications/updates");
     }
 
 

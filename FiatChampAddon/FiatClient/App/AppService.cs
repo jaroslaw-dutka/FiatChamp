@@ -45,8 +45,8 @@ namespace FiatChamp.App
             if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo) 
                 _logger.LogWarning("{brand} support is experimental.", _fiatSettings.Brand);
 
-            // await _fiatClient.LoginAndKeepSessionAliveAsync();
-            // await _fiatClient.ConnectToMqtt();
+            await _fiatClient.LoginAndKeepSessionAliveAsync();
+            await _fiatClient.ConnectToMqtt();
             // await _fiatClient.SendCommandAsync(vehicleInfo.Vehicle.Vin, "ROLIGHTS", _fiatSettings.Pin, "remote");
             // return;
 
