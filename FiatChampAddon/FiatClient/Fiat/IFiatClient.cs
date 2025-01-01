@@ -4,6 +4,7 @@ namespace FiatChamp.Fiat;
 
 public interface IFiatClient
 {
+    Task ConnectToMqtt();
     Task LoginAndKeepSessionAliveAsync();
     Task SendCommandAsync(string vin, string command, string pin, string action);
     Task<List<VehicleInfo>> FetchAsync();

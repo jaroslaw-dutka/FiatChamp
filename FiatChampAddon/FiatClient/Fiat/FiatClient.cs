@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using Amazon.CognitoIdentity;
@@ -9,6 +10,11 @@ using Flurl.Http;
 using Flurl.Http.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MQTTnet.Client;
+using MQTTnet.Extensions.ManagedClient;
+using MQTTnet;
+using Amazon.Util;
+using FiatChamp.Aws;
 
 namespace FiatChamp.Fiat;
 
@@ -32,6 +38,54 @@ public class FiatClient : IFiatClient
         _apiConfig = new FiatApiConfig(_settings);
         _httpClient = flurlClientCache.GetOrAdd(string.Empty);
     }
+
+    public async Task ConnectToMqtt()
+    {
+        var uri = new Uri("wss://ahwxpxjb5ckg1-ats.iot.eu-west-1.amazonaws.com:443/mqtt");
+
+        var contentHash = AWSSDKUtils.ToHex(SHA256.HashData(ReadOnlySpan<byte>.Empty), true);
+        var url = AwsSigner.SignQuery(_loginInfo.Value.awsCredentials, "GET", uri, DateTime.UtcNow, _apiConfig.AwsEndpoint.SystemName, "iotdata", contentHash);
+
+        var builder = new MqttClientOptionsBuilder()
+            .WithCleanSession()
+            .WithWebSocketServer(builder =>
+            {
+                builder.WithUri(url);
+                builder.WithRequestHeaders(new Dictionary<string, string>
+                {
+                    { "host", uri.Host }
+                });
+            });
+        
+        var options = new ManagedMqttClientOptionsBuilder()
+            .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+            .WithClientOptions(builder.Build())
+            .Build();
+        
+        var client = new MqttFactory().CreateManagedMqttClient();
+        await client.StartAsync(options);
+        
+        client.ApplicationMessageReceivedAsync += async args =>
+        {
+            var msg = args.ApplicationMessage;
+            _logger.LogInformation(msg.Topic + ": " + Encoding.UTF8.GetString(msg.Payload));
+        };
+
+        client.ConnectedAsync += args =>
+        {
+            var aaa = 2;
+            return Task.CompletedTask;
+        };
+
+        client.ConnectingFailedAsync += args =>
+        {
+            var aaa = 2;
+            return Task.CompletedTask;
+        };
+
+        await client.SubscribeAsync("#");
+    }
+
 
     public async Task LoginAndKeepSessionAliveAsync()
     {
@@ -130,9 +184,8 @@ public class FiatClient : IFiatClient
                 { "cognito-identity.amazonaws.com", identityResponse.Token }
             });
 
-        _loginInfo = (authResponse.UID, new ImmutableCredentials(res.Credentials.AccessKeyId,
-            res.Credentials.SecretKey,
-            res.Credentials.SessionToken));
+        var aaa = new ImmutableCredentials(res.Credentials.AccessKeyId, res.Credentials.SecretKey, res.Credentials.SessionToken);
+        _loginInfo = (authResponse.UID, aaa);
     }
 
     public async Task SendCommandAsync(string vin, string command, string pin, string action)

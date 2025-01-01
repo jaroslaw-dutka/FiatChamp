@@ -4,13 +4,13 @@ using FiatChamp.Ha.Model;
 using FiatChamp.Ha;
 using Flurl.Http;
 using System.Globalization;
-using FiatChamp.Mqtt;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using FiatChamp.Fiat.Model;
 using FiatChamp.Extensions;
 using Microsoft.Extensions.Logging;
 using FiatChamp.Fiat.Entities;
+using IMqttClient = FiatChamp.Mqtt.IMqttClient;
 
 namespace FiatChamp.App
 {
@@ -44,6 +44,11 @@ namespace FiatChamp.App
 
             if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo) 
                 _logger.LogWarning("{brand} support is experimental.", _fiatSettings.Brand);
+
+            // await _fiatClient.LoginAndKeepSessionAliveAsync();
+            // await _fiatClient.ConnectToMqtt();
+            // await _fiatClient.SendCommandAsync(vehicleInfo.Vehicle.Vin, "ROLIGHTS", _fiatSettings.Pin, "remote");
+            // return;
 
             await _mqttClient.ConnectAsync();
 
@@ -84,9 +89,9 @@ namespace FiatChamp.App
 
             GC.Collect();
 
-            await _fiatClient.LoginAndKeepSessionAlive();
-
-            foreach (var vehicleInfo in await _fiatClient.Fetch())
+            await _fiatClient.LoginAndKeepSessionAliveAsync();
+            
+            foreach (var vehicleInfo in await _fiatClient.FetchAsync())
             {
                 _logger.LogInformation("FOUND CAR: {vin}", vehicleInfo.Vehicle.Vin);
 
@@ -207,8 +212,7 @@ namespace FiatChamp.App
                 await lastUpdate.AnnounceAsync();
                 await lastUpdate.PublishStateAsync();
 
-                var haEntities = _persistentHaEntities.GetOrAdd(vehicleInfo.Vehicle.Vin, s =>
-                    CreateInteractiveEntities(_fiatClient, _mqttClient, vehicleInfo, haDevice));
+                var haEntities = _persistentHaEntities.GetOrAdd(vehicleInfo.Vehicle.Vin, s => CreateInteractiveEntities(_fiatClient, _mqttClient, vehicleInfo, haDevice));
 
                 foreach (var haEntity in haEntities)
                 {
@@ -237,7 +241,7 @@ namespace FiatChamp.App
 
             try
             {
-                await fiatClient.SendCommand(vin, command.Message, pin, command.Action);
+                await fiatClient.SendCommandAsync(vin, command.Message, pin, command.Action);
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 _logger.LogInformation("Command: {command} SUCCESSFUL", command.Message);
             }

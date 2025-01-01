@@ -6,6 +6,11 @@ namespace FiatChamp.Fiat;
 
 public class FiatClientFake : IFiatClient
 {
+    public Task ConnectToMqtt()
+    {
+        throw new NotImplementedException();
+    }
+
     public Task LoginAndKeepSessionAliveAsync()
     {
         return Task.CompletedTask;
