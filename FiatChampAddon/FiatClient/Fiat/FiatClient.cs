@@ -4,12 +4,12 @@ using Amazon.Runtime;
 using FiatChamp.Extensions;
 using FiatChamp.Fiat.Entities;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet;
 using Amazon.Util;
 using FiatChamp.Aws;
+using Microsoft.Extensions.Options;
 
 namespace FiatChamp.Fiat;
 
@@ -17,17 +17,15 @@ public class FiatClient : IFiatClient
 {
     private readonly ILogger<FiatClient> _logger;
     private readonly IFiatApiClient _apiClient;
-    private readonly FiatSettings _settings;
     private readonly FiatApiConfig _apiConfig;
     private readonly AmazonCognitoIdentityClient _cognitoClient;
     private FiatSession? _fiatSession;
     
-    public FiatClient(ILogger<FiatClient> logger, IOptions<FiatSettings> config, IFiatApiClient apiClient)
+    public FiatClient(ILogger<FiatClient> logger, IOptions<FiatSettings> options, IFiatApiConfigFactory configFactory, IFiatApiClient apiClient)
     {
         _logger = logger;
         _apiClient = apiClient;
-        _settings = config.Value;
-        _apiConfig = new FiatApiConfig(_settings);
+        _apiConfig = configFactory.Create(options.Value); // TODO: do not call this twice: here and in FiatApiClient
         _cognitoClient = new AmazonCognitoIdentityClient(new AnonymousAWSCredentials(), _apiConfig.AwsEndpoint);
     }
 

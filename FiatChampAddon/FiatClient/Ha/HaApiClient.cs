@@ -16,13 +16,13 @@ public class HaApiClient : IHaApiClient
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task<HaConfig> GetConfig()
+    public async Task<HaConfig> GetConfigAsync()
     {
         using var client = GetHttpClient();
         return await client.GetFromJsonAsync<HaConfig>("config");
     }
 
-    public async Task<IReadOnlyList<HaRestApiEntityState>> GetStates()
+    public async Task<IReadOnlyList<HaRestApiEntityState>> GetStatesAsync()
     {
         using var client = GetHttpClient();
         return await client.GetFromJsonAsync<HaRestApiEntityState[]>("states");

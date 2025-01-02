@@ -4,6 +4,6 @@ namespace FiatChamp.Ha;
 
 public interface IHaApiClient
 {
-    Task<HaConfig> GetConfig();
-    Task<IReadOnlyList<HaRestApiEntityState>> GetStates();
+    Task<HaConfig> GetConfigAsync();
+    Task<IReadOnlyList<HaRestApiEntityState>> GetStatesAsync();
 }

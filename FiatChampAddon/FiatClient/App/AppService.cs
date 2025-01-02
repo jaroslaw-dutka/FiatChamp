@@ -88,7 +88,15 @@ namespace FiatChamp.App
             GC.Collect();
 
             await _fiatClient.LoginAndKeepSessionAliveAsync();
-            
+
+            var config = await _haClient.ApiClient.GetConfigAsync();
+            _logger.LogInformation("Using unit system: {unit}", config.UnitSystem.Dump());
+
+            var shouldConvertKmToMiles = _appSettings.ConvertKmToMiles || config.UnitSystem.Length != "km";
+            _logger.LogInformation("Convert km -> miles ? {shouldConvertKmToMiles}", shouldConvertKmToMiles);
+
+            var states = await _haClient.ApiClient.GetStatesAsync();
+
             foreach (var vehicleInfo in await _fiatClient.FetchAsync())
             {
                 _logger.LogInformation("FOUND CAR: {vin}", vehicleInfo.Vehicle.Vin);
@@ -112,8 +120,7 @@ namespace FiatChamp.App
 
                 var currentCarLocation = new Coordinate(vehicleInfo.Location.Latitude, vehicleInfo.Location.Longitude);
 
-                var zones = await _haClient.ApiClient.GetZonesAscending(currentCarLocation);
-
+                var zones = states.GetZones().OrderByDistance(currentCarLocation);
                 _logger.LogDebug("Zones: {zones}", zones.Dump());
 
                 var tracker = new HaDeviceTracker(_haClient.MqttClient, "CAR_LOCATION", haDevice)
@@ -128,12 +135,6 @@ namespace FiatChamp.App
                 _logger.LogDebug("Announce sensor: {sensor}", tracker.Dump());
                 await tracker.AnnounceAsync();
                 await tracker.PublishStateAsync();
-
-                var unitSystem = await _haClient.ApiClient.GetUnitSystem();
-                _logger.LogInformation("Using unit system: {unit}", unitSystem.Dump());
-
-                var shouldConvertKmToMiles = _appSettings.ConvertKmToMiles || unitSystem.Length != "km";
-                _logger.LogInformation("Convert km -> miles ? {shouldConvertKmToMiles}", shouldConvertKmToMiles);
 
                 var flattenDetails = vehicleInfo.Details.Flatten("car");
                 var sensors = flattenDetails.Select(detail =>
