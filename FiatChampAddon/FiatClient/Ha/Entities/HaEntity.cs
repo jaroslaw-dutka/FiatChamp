@@ -1,18 +1,17 @@
 using FiatChamp.Ha.Model;
-using FiatChamp.Mqtt;
 
-namespace FiatChamp.Ha;
+namespace FiatChamp.Ha.Entities;
 
 public abstract class HaEntity
 {
-    protected readonly IMqttClient _mqttClient;
+    protected readonly IHaMqttClient _mqttClient;
     protected readonly string _name;
     protected readonly HaDevice _haDevice;
     protected readonly string _id;
 
     public string Name => _name;
 
-    protected HaEntity(IMqttClient mqttClient, string name, HaDevice haDevice)
+    protected HaEntity(IHaMqttClient mqttClient, string name, HaDevice haDevice)
     {
         _mqttClient = mqttClient;
         _name = name;

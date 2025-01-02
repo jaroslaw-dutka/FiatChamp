@@ -3,7 +3,6 @@ using FiatChamp.Fiat;
 using FiatChamp.Ha;
 using FiatChamp.Http;
 using FiatChamp.Logging;
-using FiatChamp.Mqtt;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,7 +25,6 @@ services.AddHttp(configuration);
 
 services.AddFiat(configuration);
 services.AddHa(configuration);
-services.AddMqtt(configuration);
 services.AddApp(configuration);
 
 var provider = services.BuildServiceProvider();

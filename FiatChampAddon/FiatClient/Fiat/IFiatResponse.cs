@@ -1,4 +1,4 @@
-namespace FiatChamp.Fiat.Model;
+namespace FiatChamp.Fiat;
 
 public interface IFiatResponse
 {

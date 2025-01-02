@@ -1,6 +1,6 @@
 namespace FiatChamp.Ha;
 
-public record HaSettings
+public class HaApiSettings
 {
     public string Url { get; set; }
     public string Token { get; set; }

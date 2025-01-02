@@ -5,12 +5,12 @@ using Microsoft.Extensions.Options;
 
 namespace FiatChamp.Ha;
 
-public class HaRestApi : IHaRestApi
+public class HaApiClient : IHaApiClient
 {
-    private readonly HaSettings _settings;
+    private readonly HaApiSettings _settings;
     private readonly IHttpClientFactory _httpClientFactory;
 
-    public HaRestApi(IOptions<HaSettings> config, IHttpClientFactory httpClientFactory)
+    public HaApiClient(IOptions<HaApiSettings> config, IHttpClientFactory httpClientFactory)
     {
         _settings = config.Value;
         _httpClientFactory = httpClientFactory;

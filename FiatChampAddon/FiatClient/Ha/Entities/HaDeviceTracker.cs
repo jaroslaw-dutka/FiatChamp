@@ -1,7 +1,6 @@
 using FiatChamp.Ha.Model;
-using FiatChamp.Mqtt;
 
-namespace FiatChamp.Ha;
+namespace FiatChamp.Ha.Entities;
 
 public class HaDeviceTracker : HaEntity
 {
@@ -13,7 +12,7 @@ public class HaDeviceTracker : HaEntity
     public double Lon { get; set; }
     public string StateValue { get; set; }
 
-    public HaDeviceTracker(IMqttClient mqttClient, string name, HaDevice haDevice) : base(mqttClient, name, haDevice)
+    public HaDeviceTracker(IHaMqttClient mqttClient, string name, HaDevice haDevice) : base(mqttClient, name, haDevice)
     {
         _stateTopic = $"homeassistant/sensor/{_id}/state";
         _configTopic = $"homeassistant/sensor/{_id}/config";
@@ -22,8 +21,8 @@ public class HaDeviceTracker : HaEntity
 
     public override async Task PublishStateAsync()
     {
-        await _mqttClient.PubAsync(_stateTopic, $"{StateValue}");
-        await _mqttClient.PubJsonAsync(_attributesTopic, new HaLocation
+        await _mqttClient.PublishAsync(_stateTopic, $"{StateValue}");
+        await _mqttClient.PublishJsonAsync(_attributesTopic, new HaLocation
         {
             Latitude = Lat,
             Longitude = Lon,
@@ -34,7 +33,7 @@ public class HaDeviceTracker : HaEntity
 
     public override async Task AnnounceAsync()
     {
-        await _mqttClient.PubJsonAsync(_configTopic, new HaAnnouncement
+        await _mqttClient.PublishJsonAsync(_configTopic, new HaAnnouncement
         {
             Device = _haDevice,
             Name = _name,

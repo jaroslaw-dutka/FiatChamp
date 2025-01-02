@@ -1,13 +1,13 @@
-namespace FiatChamp.Mqtt;
+namespace FiatChamp.Ha;
 
-public class MqttSettings
+public class HaMqttSettings
 {
     public string Server { get; set; }
 
     public int Port { get; set; }
-    
+
     public bool UseTls { get; set; }
-    
+
     public string ClientId { get; set; }
 
     public string User { get; set; }
