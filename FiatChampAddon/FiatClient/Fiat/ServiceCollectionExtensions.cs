@@ -11,6 +11,7 @@ namespace FiatChamp.Fiat
             .Configure<FiatSettings>(configuration.GetSection("fiat"))
             .AddSingleton<FiatClient>()
             .AddSingleton<FiatClientFake>()
+            .AddSingleton<IFiatApiClient, FiatApiClient>()
             .AddSingleton<IFiatClient>(s => s.GetService<IOptions<AppSettings>>().Value.FakeApi
                 ? s.GetService<FiatClientFake>()
                 : s.GetService<FiatClient>());
