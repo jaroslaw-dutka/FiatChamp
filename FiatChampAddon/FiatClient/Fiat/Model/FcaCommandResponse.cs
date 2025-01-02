@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FiatChamp.Fiat.Model;
 
-public class FcaCommandResponse : IFiatResponse
+public class FcaCommandResponse
 {
     [JsonPropertyName("command")]
     public string Command { get; set; }
@@ -18,12 +18,4 @@ public class FcaCommandResponse : IFiatResponse
 
     [JsonPropertyName("asyncRespTimeout")]
     public long AsyncRespTimeout { get; set; }
-
-    public bool CheckForError() => ResponseStatus != "success";
-
-    public void ThrowOnError(string message)
-    {
-        if (CheckForError())
-            throw new Exception($"{message} - {ResponseStatus}");
-    }
 }

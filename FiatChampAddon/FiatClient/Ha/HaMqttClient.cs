@@ -17,13 +17,13 @@ public class HaMqttClient : IHaMqttClient
 
     private readonly ILogger<HaMqttClient> _logger;
     private readonly HaMqttSettings _settings;
-    private readonly IManagedMqttClient _mqttClient;
+    private readonly IManagedMqttClient _client;
 
     public HaMqttClient(ILogger<HaMqttClient> logger, IOptions<HaMqttSettings> options)
     {
         _logger = logger;
         _settings = options.Value;
-        _mqttClient = new MqttFactory().CreateManagedMqttClient();
+        _client = new MqttFactory().CreateManagedMqttClient();
     }
 
     public async Task ConnectAsync()
@@ -46,24 +46,30 @@ public class HaMqttClient : IHaMqttClient
             .WithClientOptions(builder.Build())
             .Build();
 
-        await _mqttClient.StartAsync(options);
+        await _client.StartAsync(options);
 
-        _mqttClient.ConnectedAsync += _ =>
+        _client.ConnectedAsync += args =>
         {
-            _logger.LogInformation("Mqtt connection successful");
+            _logger.LogInformation("Connected to HA MQTT: " + args.ConnectResult.ReasonString);
             return Task.CompletedTask;
         };
 
-        _mqttClient.ConnectingFailedAsync += args =>
+        _client.ConnectingFailedAsync += args =>
         {
-            _logger.LogInformation(args.Exception, "Mqtt connection failed.");
+            _logger.LogInformation("Connection to Fiat HA failed: " + args.ConnectResult.ReasonString);
+            return Task.CompletedTask;
+        };
+
+        _client.DisconnectedAsync += args =>
+        {
+            _logger.LogInformation("Disconnected from HA MQTT" + args.ReasonString);
             return Task.CompletedTask;
         };
     }
 
     public async Task SubscribeAsync(string topic, Func<string, Task> callback)
     {
-        _mqttClient.ApplicationMessageReceivedAsync += async args =>
+        _client.ApplicationMessageReceivedAsync += async args =>
         {
             var msg = args.ApplicationMessage;
 
@@ -76,15 +82,15 @@ public class HaMqttClient : IHaMqttClient
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to process Mqtt payload.");
+                _logger.LogError(e, "Failed to process HA MQTT payload.");
             }
         };
 
-        await _mqttClient.SubscribeAsync(topic);
+        await _client.SubscribeAsync(topic);
     }
 
     public async Task PublishAsync(string topic, string payload) => 
-        await _mqttClient.EnqueueAsync(topic, payload, retain: true);
+        await _client.EnqueueAsync(topic, payload, retain: true);
 
     public async Task PublishJsonAsync<T>(string topic, T payload) =>
         await PublishAsync(topic, JsonSerializer.Serialize(payload, SerializerOptions));

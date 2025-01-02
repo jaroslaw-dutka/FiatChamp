@@ -18,7 +18,7 @@ public class FiatClientFake : IFiatClient
         return Task.CompletedTask;
     }
 
-    public Task<List<VehicleInfo>> FetchAsync()
+    public Task<List<VehicleInfo>> GetVehiclesAsync()
     {
         var serializer = new DefaultJsonSerializer(JsonSerializerOptions.Default);
 

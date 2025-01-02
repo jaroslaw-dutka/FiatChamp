@@ -88,7 +88,7 @@ namespace FiatChamp.App
 
             var states = await _haClient.ApiClient.GetStatesAsync();
 
-            foreach (var vehicleInfo in await _fiatClient.FetchAsync())
+            foreach (var vehicleInfo in await _fiatClient.GetVehiclesAsync())
             {
                 _logger.LogInformation("FOUND CAR: {vin}", vehicleInfo.Vehicle.Vin);
 
@@ -217,11 +217,7 @@ namespace FiatChamp.App
             _logger.LogInformation("SEND COMMAND {command}: ", command.Message);
 
             if (string.IsNullOrWhiteSpace(_fiatSettings.Pin))
-            {
                 throw new Exception("PIN NOT SET");
-            }
-
-            var pin = _fiatSettings.Pin;
 
             if (command.IsDangerous && !_appSettings.EnableDangerousCommands)
             {
@@ -231,7 +227,7 @@ namespace FiatChamp.App
 
             try
             {
-                await fiatClient.SendCommandAsync(vin, command.Message, pin, command.Action);
+                await fiatClient.SendCommandAsync(vin, command.Message, _fiatSettings.Pin, command.Action);
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 _logger.LogInformation("Command: {command} SUCCESSFUL", command.Message);
             }

@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
 using System.Text.Json;
 using Amazon.CognitoIdentity;
 using Amazon.Runtime;
@@ -8,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet;
-using Amazon.Util;
 using FiatChamp.Aws;
 using FiatChamp.Fiat.Model;
 
@@ -20,8 +18,8 @@ public class FiatClient : IFiatClient
     private readonly IFiatApiClient _apiClient;
     private readonly FiatApiConfig _apiConfig;
     private readonly AmazonCognitoIdentityClient _cognitoClient;
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource> commands = new();
 
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _commands = new();
     private FiatSession? _fiatSession;
     private IManagedMqttClient _client;
 
@@ -38,8 +36,8 @@ public class FiatClient : IFiatClient
         if (_fiatSession is not null)
             return;
 
-        await Login();
-        await ConnectToMqtt();
+        await LoginAsync();
+        await ConnectToMqttAsync();
 
         _ = Task.Run(async () =>
         {
@@ -50,7 +48,7 @@ public class FiatClient : IFiatClient
                 try
                 {
                     _logger.LogInformation("REFRESH SESSION");
-                    await Login();
+                    await LoginAsync();
                 }
                 catch (Exception e)
                 {
@@ -62,7 +60,7 @@ public class FiatClient : IFiatClient
         }, cancellationToken);
     }
 
-    public async Task<List<VehicleInfo>> FetchAsync()
+    public async Task<List<VehicleInfo>> GetVehiclesAsync()
     {
         ArgumentNullException.ThrowIfNull(_fiatSession);
 
@@ -90,19 +88,17 @@ public class FiatClient : IFiatClient
         var commandResponse = await _apiClient.SendCommand(_fiatSession, pinAuthResponse.Token, vin, action, command);
 
         var tcs = new TaskCompletionSource();
-        commands.TryAdd(commandResponse.CorrelationId, tcs);
+        _commands.TryAdd(commandResponse.CorrelationId, tcs);
 
         var index = Task.WaitAny([tcs.Task], TimeSpan.FromSeconds(30));
 
-        commands.TryRemove(commandResponse.CorrelationId, out _);
+        _commands.TryRemove(commandResponse.CorrelationId, out _);
 
         if (index < 0)
             throw new TimeoutException("Command timed out");
-
-        // commandResponse.ThrowOnError("Cannot execute command");
     }
 
-    private async Task Login()
+    private async Task LoginAsync()
     {
         var bootstrapResponse = await _apiClient.Bootstrap();
         bootstrapResponse.ThrowOnError("Login failed.");
@@ -128,27 +124,25 @@ public class FiatClient : IFiatClient
         };
     }
 
-    private async Task ConnectToMqtt()
+    private async Task ConnectToMqttAsync()
     {
         ArgumentNullException.ThrowIfNull(_fiatSession);
 
-        var uri = new Uri("wss://ahwxpxjb5ckg1-ats.iot.eu-west-1.amazonaws.com:443/mqtt");
-
-        var contentHash = AWSSDKUtils.ToHex(SHA256.HashData(ReadOnlySpan<byte>.Empty), true);
-        var url = AwsSigner.SignQuery(_fiatSession.AwsCredentials, "GET", uri, DateTime.UtcNow, _apiConfig.AwsEndpoint.SystemName, "iotdata", contentHash);
+        var baseUri = new Uri("wss://ahwxpxjb5ckg1-ats.iot.eu-west-1.amazonaws.com:443/mqtt");
+        var signedUri = AwsSigner.SignQuery(_fiatSession.AwsCredentials, "GET", baseUri, DateTime.UtcNow, _apiConfig.AwsEndpoint.SystemName, "iotdata", string.Empty);
 
         var builder = new MqttClientOptionsBuilder()
             .WithClientId(_apiConfig.ClientId)
             .WithWebSocketServer(builder =>
             {
-                builder.WithUri(url);
+                builder.WithUri(signedUri.AbsoluteUri);
                 builder.WithRequestHeaders(new Dictionary<string, string>
                 {
-                    { "host", uri.Host }
+                    { "host", signedUri.Host }
                 });
             })
             .WithTls()
-            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
+            // .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
             .WithCleanSession();
 
         var options = new ManagedMqttClientOptionsBuilder()
@@ -159,20 +153,23 @@ public class FiatClient : IFiatClient
         _client = new MqttFactory().CreateManagedMqttClient();
         await _client.StartAsync(options);
 
-        _client.ApplicationMessageReceivedAsync += async args =>
+        _client.ApplicationMessageReceivedAsync += args =>
         {
             var msg = args.ApplicationMessage;
             var payload = msg.ConvertPayloadToString();
+
             _logger.LogInformation(msg.Topic + ": " + payload);
 
             var item = JsonSerializer.Deserialize<NotificationItem>(payload);
-            if (commands.TryRemove(item.CorrelationId, out var commandTask))
+            if (_commands.TryRemove(item.CorrelationId, out var commandTask))
             {
                 if (string.Equals(item.Notification.Data.Status, "Success", StringComparison.InvariantCultureIgnoreCase))
                     commandTask.SetResult();
                 else
                     commandTask.SetException(new Exception("Command failed"));
             }
+
+            return Task.CompletedTask;
         };
 
         _client.ConnectedAsync += args =>

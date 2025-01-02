@@ -1,4 +1,5 @@
-﻿using Amazon.Runtime.Internal.Auth;
+﻿using System.Security.Cryptography;
+using Amazon.Runtime.Internal.Auth;
 using Amazon.Runtime;
 using Amazon.Util;
 using AwsSignatureVersion4.Private;
@@ -10,7 +11,7 @@ namespace FiatChamp.Aws
 {
     public static class AwsSigner
     {
-        public static string SignQuery(ImmutableCredentials credentials, string method, Uri uri, DateTime date, string regionName, string serviceName, string hash)
+        public static Uri SignQuery(ImmutableCredentials credentials, string method, Uri uri, DateTime date, string regionName, string serviceName, string? content = null)
         {
             var credentialScope = $"{date.ToIso8601BasicDate()}/{regionName}/{serviceName}/{AWS4Signer.Terminator}";
 
@@ -25,7 +26,8 @@ namespace FiatChamp.Aws
                 { "host", uri.Host }
             };
 
-            var canonicalRequest = BuildCanonicalRequest(method, uri.AbsolutePath, query, headers, hash);
+            var contentHash = content is null ? "UNSIGNED-PAYLOAD" : AWSSDKUtils.ToHex(SHA256.HashData(Encoding.UTF8.GetBytes(content)), true);
+            var canonicalRequest = BuildCanonicalRequest(method, uri.AbsolutePath, query, headers, contentHash);
             var stringToSign = BuildStringToSign(date, credentialScope, canonicalRequest);
 
             var signingKey = AWS4Signer.ComposeSigningKey(credentials.SecretKey, regionName, date.ToIso8601BasicDate(), serviceName);
@@ -41,7 +43,7 @@ namespace FiatChamp.Aws
                 Query = string.Join('&', query.Select(i => AWSSDKUtils.UrlEncode(i.Key, false) + "=" + AWSSDKUtils.UrlEncode(i.Value, false)))
             };
 
-            return builder.ToString();
+            return builder.Uri;
         }
 
         public static string BuildCanonicalRequest(string method, string url, Dictionary<string, string> query, Dictionary<string, string> headers, string payloadHash)
