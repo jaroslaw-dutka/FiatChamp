@@ -254,67 +254,28 @@ namespace FiatChamp.App
             return true;
         }
 
-        private IEnumerable<HaEntity> CreateInteractiveEntities(VehicleInfo vehicle, HaDevice haDevice)
+        private IEnumerable<HaEntity> CreateInteractiveEntities(VehicleInfo vehicle, HaDevice haDevice) =>
+        [
+            CreateButton("UpdateLocation", haDevice, FiatCommands.VF, vehicle.Vehicle.Vin),
+            CreateButton("RefreshBatteryStatus", haDevice, FiatCommands.DEEPREFRESH, vehicle.Vehicle.Vin),
+            CreateButton("DeepRefresh", haDevice, FiatCommands.DEEPREFRESH, vehicle.Vehicle.Vin),
+            CreateButton("Blink", haDevice, FiatCommands.HBLF, vehicle.Vehicle.Vin),
+            CreateButton("ChargeNOW", haDevice, FiatCommands.CNOW, vehicle.Vehicle.Vin),
+            CreateSwitch("Trunk", haDevice, FiatCommands.ROTRUNKUNLOCK, FiatCommands.ROTRUNKLOCK, vehicle.Vehicle.Vin),
+            CreateSwitch("HVAC", haDevice, FiatCommands.ROPRECOND, FiatCommands.ROPRECOND_OFF, vehicle.Vehicle.Vin),
+            CreateSwitch("DoorLock", haDevice, FiatCommands.RDL, FiatCommands.RDU, vehicle.Vehicle.Vin)
+        ];
+
+        private HaButton CreateButton(string name, HaDevice device, FiatCommand command, string vin) => new(_haClient.MqttClient, name, device, async _ =>
         {
-            var updateLocationButton = new HaButton(_haClient.MqttClient, "UpdateLocation", haDevice, async button =>
-            {
-                if (await TrySendCommand(_fiatClient, FiatCommands.VF, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
+            if (await TrySendCommand(_fiatClient, command, vin))
+                _forceLoopResetEvent.Set();
+        });
 
-            var batteryRefreshButton = new HaButton(_haClient.MqttClient, "RefreshBatteryStatus", haDevice, async button =>
-            {
-                if (await TrySendCommand(_fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            var deepRefreshButton = new HaButton(_haClient.MqttClient, "DeepRefresh", haDevice, async button =>
-            {
-                if (await TrySendCommand(_fiatClient, FiatCommands.DEEPREFRESH, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            var locateLightsButton = new HaButton(_haClient.MqttClient, "Blink", haDevice, async button =>
-            {
-                if (await TrySendCommand(_fiatClient, FiatCommands.HBLF, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            var chargeNowButton = new HaButton(_haClient.MqttClient, "ChargeNOW", haDevice, async button =>
-            {
-                if (await TrySendCommand(_fiatClient, FiatCommands.CNOW, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            var trunkSwitch = new HaSwitch(_haClient.MqttClient, "Trunk", haDevice, async sw =>
-            {
-                if (await TrySendCommand(_fiatClient, sw.IsOn ? FiatCommands.ROTRUNKUNLOCK : FiatCommands.ROTRUNKLOCK, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            var hvacSwitch = new HaSwitch(_haClient.MqttClient, "HVAC", haDevice, async sw =>
-            {
-                if (await TrySendCommand(_fiatClient, sw.IsOn ? FiatCommands.ROPRECOND : FiatCommands.ROPRECOND_OFF, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            var lockSwitch = new HaSwitch(_haClient.MqttClient, "DoorLock", haDevice, async sw =>
-            {
-                if (await TrySendCommand(_fiatClient, sw.IsOn ? FiatCommands.RDL : FiatCommands.RDU, vehicle.Vehicle.Vin))
-                    _forceLoopResetEvent.Set();
-            });
-
-            return
-            [
-                hvacSwitch,
-                trunkSwitch,
-                chargeNowButton,
-                deepRefreshButton,
-                locateLightsButton,
-                updateLocationButton,
-                lockSwitch,
-                batteryRefreshButton
-            ];
-        }
+        private HaSwitch CreateSwitch(string name, HaDevice device, FiatCommand offCommand, FiatCommand onCommand, string vin) => new(_haClient.MqttClient, name, device, async sw =>
+        {
+            if (await TrySendCommand(_fiatClient, sw.IsOn ? offCommand : onCommand, vin))
+                _forceLoopResetEvent.Set();
+        });
     }
 }
