@@ -20,7 +20,7 @@ public class FiatApiClient : IFiatApiClient
     {
         _settings = options.Value;
         _apiConfig = configFactory.Create(options.Value);
-        _flurlClient = flurlClientCache.GetOrAdd(string.Empty);
+        _flurlClient = flurlClientCache.GetOrAdd("fiat_api");
     }
 
     public async Task<FiatBootstrapResponse> Bootstrap() => await _flurlClient
@@ -74,14 +74,13 @@ public class FiatApiClient : IFiatApiClient
         })
         .ReceiveJson<FcaPinAuthResponse>();
 
-    public async Task<FcaCommandResponse> SendCommand(FiatSession session, string pinAuth, string vin, string action, string command) => await _flurlClient
+    public async Task<FcaCommandResponse> SendCommand(FiatSession session, string pinToken, string vin, string action, string command) => await _flurlClient
         .Request(_apiConfig.ApiUrl)
         .AppendPathSegments("v1", "accounts", session.UserId, "vehicles", vin, action)
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
         .AwsSignAndPostJsonAsync(session.AwsCredentials, _apiConfig.AwsEndpoint, new
         {
-            command,
-            pinAuth
+            command, pinAuth = pinToken
         })
         .ReceiveJson<FcaCommandResponse>();
 

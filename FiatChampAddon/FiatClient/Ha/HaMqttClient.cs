@@ -19,10 +19,10 @@ public class HaMqttClient : IHaMqttClient
     private readonly HaMqttSettings _settings;
     private readonly IManagedMqttClient _mqttClient;
 
-    public HaMqttClient(ILogger<HaMqttClient> logger, IOptions<HaMqttSettings> config)
+    public HaMqttClient(ILogger<HaMqttClient> logger, IOptions<HaMqttSettings> options)
     {
         _logger = logger;
-        _settings = config.Value;
+        _settings = options.Value;
         _mqttClient = new MqttFactory().CreateManagedMqttClient();
     }
 
