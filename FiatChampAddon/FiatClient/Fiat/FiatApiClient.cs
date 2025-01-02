@@ -137,11 +137,11 @@ public class FiatApiClient : IFiatApiClient
 
     private Dictionary<string, object> WithAwsHeaders(string apiKey) => new()
     {
-        { "X-Api-Key", apiKey },
-        { "X-ClientApp-Name", "CWP" },
-        { "X-ClientApp-Version", "1.0" },
-        { "A-Originator-Type", "web" },
-        { "ClientRequestId", Guid.NewGuid().ToString("N")[..16] },
-        { "Locale", _apiConfig.Locale },
+        { "x-api-key", apiKey },
+        { "x-clientapp-name", "CWP" },
+        { "x-clientapp-version", "1.0" },
+        { "x-originator-type", "web" },
+        { "clientrequestid", Guid.NewGuid().ToString("N")[..16] },
+        { "locale", _apiConfig.Locale }
     };
 }
