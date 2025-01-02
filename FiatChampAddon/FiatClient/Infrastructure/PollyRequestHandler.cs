@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Polly;
 
-namespace FiatChamp.Http;
+namespace FiatChamp.Infrastructure;
 
 public class PollyRequestHandler : DelegatingHandler
 {

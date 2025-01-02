@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using FiatChamp.App;
+using Flurl.Http.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog.Events;
 using Serilog;
-using FiatChamp.App;
+using Serilog.Events;
 
-namespace FiatChamp.Logging
+namespace FiatChamp.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
@@ -20,5 +21,10 @@ namespace FiatChamp.Logging
 
             return services.AddLogging(i => i.AddSerilog(logger));
         }
+
+        public static IServiceCollection AddHttp(this IServiceCollection services, IConfiguration configuration) => services
+            .AddHttpClient()
+            .AddSingleton<PollyRequestHandler>()
+            .AddSingleton(sp => new FlurlClientCache().WithDefaults(builder => builder.AddMiddleware(sp.GetRequiredService<PollyRequestHandler>)));
     }
 }

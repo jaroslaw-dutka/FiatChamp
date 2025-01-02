@@ -1,8 +1,7 @@
 ﻿using FiatChamp.App;
 using FiatChamp.Fiat;
 using FiatChamp.Ha;
-using FiatChamp.Http;
-using FiatChamp.Logging;
+using FiatChamp.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
