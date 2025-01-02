@@ -9,33 +9,22 @@ public class HaSensor : HaEntity
     public string Unit { get; set; }
     public string DeviceClass { get; set; }
 
-    private readonly string _stateTopic;
-    private readonly string _configTopic;
-
-    public HaSensor(IHaMqttClient mqttClient, string name, HaDevice haDevice)
-        : base(mqttClient, name, haDevice)
+    public HaSensor(IHaMqttClient mqttClient, HaDevice device, string name) : base("sensor", mqttClient, device, name)
     {
-        _stateTopic = $"homeassistant/sensor/{_id}/state";
-        _configTopic = $"homeassistant/sensor/{_id}/config";
     }
 
     public override async Task PublishStateAsync() =>
-        await _mqttClient.PublishAsync(_stateTopic, $"{Value}");
+        await MqttClient.PublishAsync(StateTopic, $"{Value}");
 
-    public override async Task AnnounceAsync()
+    public override async Task AnnounceAsync() => await MqttClient.PublishJsonAsync(ConfigTopic, new HaAnnouncement
     {
-        await _mqttClient.PublishJsonAsync(_configTopic, new HaAnnouncement
-        {
-            Device = _haDevice,
-            Name = _name,
-            UnitOfMeasurement = Unit,
-            DeviceClass = DeviceClass,
-            Icon = Icon,
-            StateTopic = _stateTopic,
-            UniqueId = _id,
-            Platform = "mqtt",
-        });
-
-        await Task.Delay(200);
-    }
+        Device = Device,
+        Name = Name,
+        UnitOfMeasurement = Unit,
+        DeviceClass = DeviceClass,
+        Icon = Icon,
+        StateTopic = StateTopic,
+        UniqueId = Id,
+        Platform = "mqtt",
+    });
 }

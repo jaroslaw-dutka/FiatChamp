@@ -4,19 +4,29 @@ namespace FiatChamp.Ha.Entities;
 
 public abstract class HaEntity
 {
-    protected readonly IHaMqttClient _mqttClient;
-    protected readonly string _name;
-    protected readonly HaDevice _haDevice;
-    protected readonly string _id;
+    protected IHaMqttClient MqttClient { get; }
+    protected HaDevice Device { get; }
+    protected string Id { get; }
 
-    public string Name => _name;
+    protected string CommandTopic { get; }
+    protected string ConfigTopic { get; }
+    protected string StateTopic { get; }
+    protected string AttributesTopic { get; }
 
-    protected HaEntity(IHaMqttClient mqttClient, string name, HaDevice haDevice)
+    public string Name { get; }
+
+    protected HaEntity(string type, IHaMqttClient mqttClient, HaDevice device, string name)
     {
-        _mqttClient = mqttClient;
-        _name = name;
-        _haDevice = haDevice;
-        _id = $"{haDevice.Identifiers.First()}_{name}";
+        MqttClient = mqttClient;
+        Device = device;
+        Id = $"{device.Identifiers.First()}_{name}";
+
+        CommandTopic = $"homeassistant/{type}/{Id}/set";
+        ConfigTopic = $"homeassistant/{type}/{Id}/config";
+        StateTopic = $"homeassistant/{type}/{Id}/state";
+        AttributesTopic = $"homeassistant/{type}/{Id}/attributes";
+
+        Name = name;
     }
 
     public abstract Task PublishStateAsync();
