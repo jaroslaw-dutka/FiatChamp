@@ -9,7 +9,7 @@ namespace FiatChamp.Fiat
     {
         public static IServiceCollection AddFiat(this IServiceCollection services, IConfiguration configuration) => services
             .Configure<FiatSettings>(configuration.GetSection("fiat"))
-            .AddSingleton<IFiatApiConfigFactory, FiatApiConfigFactory>()
+            .AddSingleton<IFiatApiConfigProvider, FiatApiConfigProvider>()
             .AddSingleton<FiatClient>()
             .AddSingleton<FiatClientFake>()
             .AddSingleton<IFiatApiClient, FiatApiClient>()

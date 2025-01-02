@@ -1,11 +1,23 @@
 using Amazon;
 using FiatChamp.Fiat.Model;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace FiatChamp.Fiat;
 
-public class FiatApiConfigFactory : IFiatApiConfigFactory
+public class FiatApiConfigProvider : IFiatApiConfigProvider
 {
-    public FiatApiConfig Create(FiatSettings settings) => settings switch
+    private readonly FiatSettings _settings;
+    private FiatApiConfig? _config;
+
+    public FiatApiConfigProvider(ILogger<FiatApiConfigProvider> logger, IOptions<FiatSettings> options)
+    {
+        _settings = options.Value;
+        if (_settings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo)
+            logger.LogWarning("{brand} support is experimental.", _settings.Brand);
+    }
+
+    public FiatApiConfig Get() => _config ??= _settings switch
     {
         { Brand: FcaBrand.Ram } => new FiatApiConfig
         {
@@ -79,6 +91,6 @@ public class FiatApiConfigFactory : IFiatApiConfigFactory
             AwsEndpoint = RegionEndpoint.USEast1,
             Locale = "en_us",
         },
-        _ => throw new ArgumentOutOfRangeException(nameof(settings.Brand))
+        _ => throw new ArgumentOutOfRangeException(nameof(_settings.Brand))
     };
 }

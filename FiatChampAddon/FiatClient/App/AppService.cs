@@ -40,10 +40,8 @@ namespace FiatChamp.App
             _logger.LogInformation("Delay start for seconds: {delay}", _appSettings.StartDelaySeconds);
             await Task.Delay(TimeSpan.FromSeconds(_appSettings.StartDelaySeconds), cancellationToken);
 
-            if (_fiatSettings.Brand is FcaBrand.Ram or FcaBrand.Dodge or FcaBrand.AlfaRomeo) 
-                _logger.LogWarning("{brand} support is experimental.", _fiatSettings.Brand);
+            await _fiatClient.LoginAndKeepSessionAliveAsync(cancellationToken);
 
-            // await _fiatClient.LoginAndKeepSessionAliveAsync();
             // await _fiatClient.ConnectToMqtt();
             // await _fiatClient.SendCommandAsync(vehicleInfo.Vehicle.Vin, "ROLIGHTS", _fiatSettings.Pin, "remote");
             // return;
@@ -86,8 +84,6 @@ namespace FiatChamp.App
             _logger.LogInformation("Now fetching new data...");
 
             GC.Collect();
-
-            await _fiatClient.LoginAndKeepSessionAliveAsync();
 
             var config = await _haClient.ApiClient.GetConfigAsync();
             _logger.LogInformation("Using unit system: {unit}", config.UnitSystem.Dump());

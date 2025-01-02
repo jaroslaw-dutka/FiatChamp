@@ -4,6 +4,7 @@ using Amazon;
 using Amazon.Runtime;
 using AwsSignatureVersion4.Private;
 using Flurl.Http;
+using Microsoft.Extensions.Logging;
 
 namespace FiatChamp.Extensions;
 
@@ -25,4 +26,11 @@ public static class FlurlExtensions
         await request
             .AwsSign(credentials, regionEndpoint, data)
             .PostJsonAsync(data);
+
+    public static async Task<T> DumpAsync<T>(this Task<T> resultTask, ILogger logger)
+    {
+        var result = await resultTask;
+        logger.LogDebug(result.Dump());
+        return result;
+    }
 }

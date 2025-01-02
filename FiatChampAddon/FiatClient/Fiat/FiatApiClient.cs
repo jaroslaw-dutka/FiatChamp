@@ -5,6 +5,7 @@ using FiatChamp.Fiat.Entities;
 using FiatChamp.Fiat.Model;
 using Flurl.Http;
 using Flurl.Http.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace FiatChamp.Fiat;
@@ -12,14 +13,16 @@ namespace FiatChamp.Fiat;
 public class FiatApiClient : IFiatApiClient
 {
     private readonly CookieJar _cookieJar = new();
+    private readonly ILogger _logger;
     private readonly FiatSettings _settings;
     private readonly FiatApiConfig _apiConfig;
     private readonly IFlurlClient _flurlClient;
 
-    public FiatApiClient(IOptions<FiatSettings> options, IFiatApiConfigFactory configFactory, IFlurlClientCache flurlClientCache)
+    public FiatApiClient(ILogger logger, IOptions<FiatSettings> options, IFiatApiConfigProvider configProvider, IFlurlClientCache flurlClientCache)
     {
+        _logger = logger;
         _settings = options.Value;
-        _apiConfig = configFactory.Create(options.Value);
+        _apiConfig = configProvider.Get();
         _flurlClient = flurlClientCache.GetOrAdd("fiat_api");
     }
 
@@ -28,7 +31,8 @@ public class FiatApiClient : IFiatApiClient
         .AppendPathSegment("accounts.webSdkBootstrap")
         .SetQueryParam("apiKey", _apiConfig.LoginApiKey)
         .WithCookies(_cookieJar)
-        .GetJsonAsync<FiatBootstrapResponse>();
+        .GetJsonAsync<FiatBootstrapResponse>()
+        .DumpAsync(_logger);
 
     public async Task<FiatLoginResponse> Login() => await _flurlClient
         .Request(_apiConfig.LoginUrl)
@@ -41,7 +45,8 @@ public class FiatApiClient : IFiatApiClient
             { "sessionExpiration", TimeSpan.FromMinutes(5).TotalSeconds },
             { "include", "profile,data,emails,subscriptions,preferences" },
         }))
-        .ReceiveJson<FiatLoginResponse>();
+        .ReceiveJson<FiatLoginResponse>()
+        .DumpAsync(_logger);
 
     public async Task<FiatTokenResponse> GetToken(string loginToken) => await _flurlClient
         .Request(_apiConfig.LoginUrl)
@@ -52,7 +57,8 @@ public class FiatApiClient : IFiatApiClient
             { "login_token", loginToken }
         }))
         .WithCookies(_cookieJar)
-        .GetJsonAsync<FiatTokenResponse>();
+        .GetJsonAsync<FiatTokenResponse>()
+        .DumpAsync(_logger);
 
     public async Task<FcaIdentityResponse> GetIdentity(string idToken) => await _flurlClient
         .Request(_apiConfig.TokenUrl)
@@ -62,7 +68,8 @@ public class FiatApiClient : IFiatApiClient
         {
             gigya_token = idToken,
         })
-        .ReceiveJson<FcaIdentityResponse>();
+        .ReceiveJson<FcaIdentityResponse>()
+        .DumpAsync(_logger);
 
     public async Task<FcaPinAuthResponse> AuthenticatePin(FiatSession session, string pin) => await _flurlClient
         .Request(_apiConfig.AuthUrl)
@@ -72,7 +79,8 @@ public class FiatApiClient : IFiatApiClient
         {
             pin = Convert.ToBase64String(Encoding.UTF8.GetBytes(pin))
         })
-        .ReceiveJson<FcaPinAuthResponse>();
+        .ReceiveJson<FcaPinAuthResponse>()
+        .DumpAsync(_logger);
 
     public async Task<FcaCommandResponse> SendCommand(FiatSession session, string pinToken, string vin, string action, string command) => await _flurlClient
         .Request(_apiConfig.ApiUrl)
@@ -82,7 +90,8 @@ public class FiatApiClient : IFiatApiClient
         {
             command, pinAuth = pinToken
         })
-        .ReceiveJson<FcaCommandResponse>();
+        .ReceiveJson<FcaCommandResponse>()
+        .DumpAsync(_logger);
 
     public async Task<VehicleResponse> GetVehicles(FiatSession session) => await _flurlClient
         .Request(_apiConfig.ApiUrl)
@@ -97,14 +106,16 @@ public class FiatApiClient : IFiatApiClient
         .AppendPathSegments("v2", "accounts", session.UserId, "vehicles", vin, "status")
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
         .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
-        .GetJsonAsync<JsonObject>();
+        .GetJsonAsync<JsonObject>()
+        .DumpAsync(_logger);
 
     public async Task<VehicleLocation> GetVehicleLocation(FiatSession session, string vin) => await _flurlClient
         .Request(_apiConfig.ApiUrl)
         .AppendPathSegments("v1", "accounts", session.UserId, "vehicles", vin, "location", "lastknown")
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
         .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
-        .GetJsonAsync<VehicleLocation>();
+        .GetJsonAsync<VehicleLocation>()
+        .DumpAsync(_logger);
 
     public async Task<NotificationsResponse> GetNotifications(FiatSession session) => await _flurlClient
         .Request(_apiConfig.ApiUrl)
@@ -114,7 +125,8 @@ public class FiatApiClient : IFiatApiClient
         .SetQueryParam("till", 1735647290831)
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
         .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
-        .GetJsonAsync<NotificationsResponse>();
+        .GetJsonAsync<NotificationsResponse>()
+        .DumpAsync(_logger);
 
     private Dictionary<string, object> WithFiatParameters(Dictionary<string, object>? parameters = null)
     {
