@@ -1,4 +1,5 @@
-﻿using FiatChamp.App;
+﻿using System.Text.Json;
+using FiatChamp.App;
 using Flurl.Http.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,10 @@ namespace FiatChamp.Infrastructure
         public static IServiceCollection AddHttp(this IServiceCollection services, IConfiguration configuration) => services
             .AddHttpClient()
             .AddSingleton<PollyRequestHandler>()
-            .AddSingleton(sp => new FlurlClientCache().WithDefaults(builder => builder.AddMiddleware(sp.GetRequiredService<PollyRequestHandler>)));
+            .AddSingleton(sp => new FlurlClientCache().WithDefaults(builder =>
+            {
+                builder.Settings.JsonSerializer = new DefaultJsonSerializer(JsonSerializerOptions.Default);
+                builder.AddMiddleware(sp.GetRequiredService<PollyRequestHandler>);
+            }));
     }
 }

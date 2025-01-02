@@ -20,7 +20,7 @@ public class NotificationItem
     public Notification Notification { get; set; }
 
     [JsonPropertyName("correlationId")]
-    public string CorrelationId { get; set; }
+    public Guid CorrelationId { get; set; }
 
     [JsonPropertyName("read")]
     public bool Read { get; set; }

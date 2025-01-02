@@ -18,7 +18,7 @@ public class FiatApiClient : IFiatApiClient
     private readonly FiatApiConfig _apiConfig;
     private readonly IFlurlClient _flurlClient;
 
-    public FiatApiClient(ILogger logger, IOptions<FiatSettings> options, IFiatApiConfigProvider configProvider, IFlurlClientCache flurlClientCache)
+    public FiatApiClient(ILogger<FiatApiClient> logger, IOptions<FiatSettings> options, IFiatApiConfigProvider configProvider, IFlurlClientCache flurlClientCache)
     {
         _logger = logger;
         _settings = options.Value;
@@ -153,7 +153,7 @@ public class FiatApiClient : IFiatApiClient
         { "x-clientapp-name", "CWP" },
         { "x-clientapp-version", "1.0" },
         { "x-originator-type", "web" },
-        { "clientrequestid", Guid.NewGuid().ToString("N")[..16] },
+        { "clientrequestid", _apiConfig.ClientId },
         { "locale", _apiConfig.Locale }
     };
 }

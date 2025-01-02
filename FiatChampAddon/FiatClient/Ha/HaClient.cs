@@ -10,5 +10,10 @@
             ApiClient = apiClient;
             MqttClient = mqttClient;
         }
+
+        public async Task ConnectAsync(CancellationToken cancellationToken)
+        {
+            await MqttClient.ConnectAsync();
+        }
     }
 }

@@ -40,13 +40,8 @@ namespace FiatChamp.App
             _logger.LogInformation("Delay start for seconds: {delay}", _appSettings.StartDelaySeconds);
             await Task.Delay(TimeSpan.FromSeconds(_appSettings.StartDelaySeconds), cancellationToken);
 
-            await _fiatClient.LoginAndKeepSessionAliveAsync(cancellationToken);
-
-            // await _fiatClient.ConnectToMqtt();
-            // await _fiatClient.SendCommandAsync(vehicleInfo.Vehicle.Vin, "ROLIGHTS", _fiatSettings.Pin, "remote");
-            // return;
-
-            await _haClient.MqttClient.ConnectAsync();
+            await _haClient.ConnectAsync(cancellationToken);
+            await _fiatClient.ConnectAsync(cancellationToken);
 
             while (!cancellationToken.IsCancellationRequested)
             {

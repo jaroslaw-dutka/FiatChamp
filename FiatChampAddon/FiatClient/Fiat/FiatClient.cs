@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Amazon.CognitoIdentity;
 using Amazon.Runtime;
 using FiatChamp.Fiat.Entities;
@@ -8,6 +10,7 @@ using MQTTnet.Extensions.ManagedClient;
 using MQTTnet;
 using Amazon.Util;
 using FiatChamp.Aws;
+using FiatChamp.Fiat.Model;
 
 namespace FiatChamp.Fiat;
 
@@ -17,9 +20,11 @@ public class FiatClient : IFiatClient
     private readonly IFiatApiClient _apiClient;
     private readonly FiatApiConfig _apiConfig;
     private readonly AmazonCognitoIdentityClient _cognitoClient;
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource> commands = new();
 
     private FiatSession? _fiatSession;
-    
+    private IManagedMqttClient _client;
+
     public FiatClient(ILogger<FiatClient> logger, IFiatApiConfigProvider configProvider, IFiatApiClient apiClient)
     {
         _logger = logger;
@@ -28,12 +33,13 @@ public class FiatClient : IFiatClient
         _cognitoClient = new AmazonCognitoIdentityClient(new AnonymousAWSCredentials(), _apiConfig.AwsEndpoint);
     }
 
-    public async Task LoginAndKeepSessionAliveAsync(CancellationToken cancellationToken)
+    public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         if (_fiatSession is not null)
             return;
 
         await Login();
+        await ConnectToMqtt();
 
         _ = Task.Run(async () =>
         {
@@ -56,15 +62,6 @@ public class FiatClient : IFiatClient
         }, cancellationToken);
     }
 
-    public async Task SendCommandAsync(string vin, string command, string pin, string action)
-    {
-        ArgumentNullException.ThrowIfNull(_fiatSession);
-        
-        var pinAuthResponse = await _apiClient.AuthenticatePin(_fiatSession, pin);
-        var commandResponse = await _apiClient.SendCommand(_fiatSession, pinAuthResponse.Token, vin, action, command);
-        commandResponse.ThrowOnError("Cannot execute command");
-    }
-
     public async Task<List<VehicleInfo>> FetchAsync()
     {
         ArgumentNullException.ThrowIfNull(_fiatSession);
@@ -85,61 +82,24 @@ public class FiatClient : IFiatClient
         return result;
     }
 
-    public async Task ConnectToMqtt()
+    public async Task SendCommandAsync(string vin, string command, string pin, string action)
     {
-        var uri = new Uri("wss://ahwxpxjb5ckg1-ats.iot.eu-west-1.amazonaws.com:443/mqtt");
+        ArgumentNullException.ThrowIfNull(_fiatSession);
+        
+        var pinAuthResponse = await _apiClient.AuthenticatePin(_fiatSession, pin);
+        var commandResponse = await _apiClient.SendCommand(_fiatSession, pinAuthResponse.Token, vin, action, command);
 
-        var contentHash = AWSSDKUtils.ToHex(SHA256.HashData(ReadOnlySpan<byte>.Empty), true);
-        var url = AwsSigner.SignQuery(_fiatSession.AwsCredentials, "GET", uri, DateTime.UtcNow, _apiConfig.AwsEndpoint.SystemName, "iotdata", contentHash);
+        var tcs = new TaskCompletionSource();
+        commands.TryAdd(commandResponse.CorrelationId, tcs);
 
-        var builder = new MqttClientOptionsBuilder()
-            .WithClientId("NGI1OTlmNTEtNGQyNC01NQ==")
-            .WithWebSocketServer(builder =>
-            {
-                builder.WithUri(url);
-                builder.WithRequestHeaders(new Dictionary<string, string>
-                {
-                    { "host", uri.Host }
-                });
-            })
-            .WithTls()
-            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
-            .WithCleanSession();
+        var index = Task.WaitAny([tcs.Task], TimeSpan.FromSeconds(30));
 
-        var options = new ManagedMqttClientOptionsBuilder()
-            .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
-            .WithClientOptions(builder.Build())
-            .Build();
+        commands.TryRemove(commandResponse.CorrelationId, out _);
 
-        var client = new MqttFactory().CreateManagedMqttClient();
-        await client.StartAsync(options);
+        if (index < 0)
+            throw new TimeoutException("Command timed out");
 
-        client.ApplicationMessageReceivedAsync += async args =>
-        {
-            var msg = args.ApplicationMessage;
-            var payload = msg.ConvertPayloadToString();
-            _logger.LogInformation(msg.Topic + ": " + payload);
-        };
-
-        client.ConnectedAsync += args =>
-        {
-            _logger.LogInformation("Connection to mqtt succeeded: " + args.ConnectResult.ReasonString);
-            return Task.CompletedTask;
-        };
-
-        client.ConnectingFailedAsync += args =>
-        {
-            _logger.LogInformation("Connection to mqtt failed: " + args.ConnectResult.ReasonString);
-            return Task.CompletedTask;
-        };
-
-        client.DisconnectedAsync += args =>
-        {
-            _logger.LogInformation("Disconnected from mqtt" + args.ReasonString);
-            return Task.CompletedTask;
-        };
-
-        await client.SubscribeAsync("channels/" + _fiatSession.UserId + "/+/notifications/updates");
+        // commandResponse.ThrowOnError("Cannot execute command");
     }
 
     private async Task Login()
@@ -166,5 +126,73 @@ public class FiatClient : IFiatClient
             UserId = loginResponse.UID,
             AwsCredentials = new ImmutableCredentials(credentialsResponse.Credentials.AccessKeyId, credentialsResponse.Credentials.SecretKey, credentialsResponse.Credentials.SessionToken)
         };
+    }
+
+    private async Task ConnectToMqtt()
+    {
+        ArgumentNullException.ThrowIfNull(_fiatSession);
+
+        var uri = new Uri("wss://ahwxpxjb5ckg1-ats.iot.eu-west-1.amazonaws.com:443/mqtt");
+
+        var contentHash = AWSSDKUtils.ToHex(SHA256.HashData(ReadOnlySpan<byte>.Empty), true);
+        var url = AwsSigner.SignQuery(_fiatSession.AwsCredentials, "GET", uri, DateTime.UtcNow, _apiConfig.AwsEndpoint.SystemName, "iotdata", contentHash);
+
+        var builder = new MqttClientOptionsBuilder()
+            .WithClientId(_apiConfig.ClientId)
+            .WithWebSocketServer(builder =>
+            {
+                builder.WithUri(url);
+                builder.WithRequestHeaders(new Dictionary<string, string>
+                {
+                    { "host", uri.Host }
+                });
+            })
+            .WithTls()
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
+            .WithCleanSession();
+
+        var options = new ManagedMqttClientOptionsBuilder()
+            .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+            .WithClientOptions(builder.Build())
+            .Build();
+
+        _client = new MqttFactory().CreateManagedMqttClient();
+        await _client.StartAsync(options);
+
+        _client.ApplicationMessageReceivedAsync += async args =>
+        {
+            var msg = args.ApplicationMessage;
+            var payload = msg.ConvertPayloadToString();
+            _logger.LogInformation(msg.Topic + ": " + payload);
+
+            var item = JsonSerializer.Deserialize<NotificationItem>(payload);
+            if (commands.TryRemove(item.CorrelationId, out var commandTask))
+            {
+                if (string.Equals(item.Notification.Data.Status, "Success", StringComparison.InvariantCultureIgnoreCase))
+                    commandTask.SetResult();
+                else
+                    commandTask.SetException(new Exception("Command failed"));
+            }
+        };
+
+        _client.ConnectedAsync += args =>
+        {
+            _logger.LogInformation("Connected to Fiat MQTT: " + args.ConnectResult.ReasonString);
+            return Task.CompletedTask;
+        };
+
+        _client.ConnectingFailedAsync += args =>
+        {
+            _logger.LogInformation("Connection to Fiat MQTT failed: " + args.ConnectResult.ReasonString);
+            return Task.CompletedTask;
+        };
+
+        _client.DisconnectedAsync += args =>
+        {
+            _logger.LogInformation("Disconnected from Fiat MQTT" + args.ReasonString);
+            return Task.CompletedTask;
+        };
+
+        await _client.SubscribeAsync("channels/" + _fiatSession.UserId + "/+/notifications/updates");
     }
 }

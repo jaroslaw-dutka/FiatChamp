@@ -4,6 +4,7 @@ namespace FiatChamp.Fiat;
 
 public class FiatApiConfig
 {
+    public string ClientId { get; } = Guid.NewGuid().ToString("N")[..16];
     public string LoginApiKey { get; set; }
     public string ApiKey { get; set; }
     public string AuthApiKey { get; set; }
