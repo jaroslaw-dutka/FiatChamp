@@ -15,7 +15,7 @@ public static class JsonNodeExtensions
                 break;
             case JsonArray array:
                 for (var i = 0; i < array.Count; i++)
-                    array[i]!.Flatten($"{key}_array_{i}", result);
+                    array[i]!.Flatten($"{key}_{i}", result);
                 break;
             case JsonObject obj:
                 foreach (var (objKey, objValue) in obj)

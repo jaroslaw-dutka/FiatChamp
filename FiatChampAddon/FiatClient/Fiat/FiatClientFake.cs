@@ -27,7 +27,7 @@ public class FiatClientFake : IFiatClient
             {
                 Vehicle = serializer.Deserialize<Vehicle>(File.OpenRead("./Mocks/vehicles.json")),
                 Location = serializer.Deserialize<VehicleLocation>(File.OpenRead("./Mocks/location.json")),
-                Details = serializer.Deserialize<JsonObject>(File.OpenRead("./Mocks/location.json"))
+                Details = serializer.Deserialize<JsonObject>(File.OpenRead("./Mocks/details.json"))
             }
         });
     }

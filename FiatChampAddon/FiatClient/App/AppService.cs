@@ -3,7 +3,6 @@ using FiatChamp.Fiat;
 using FiatChamp.Ha.Model;
 using FiatChamp.Ha;
 using Flurl.Http;
-using System.Globalization;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using FiatChamp.Fiat.Model;
@@ -17,7 +16,7 @@ namespace FiatChamp.App
     public class AppService : IAppService
     {
         private readonly AutoResetEvent _forceLoopResetEvent = new(false);
-        private readonly ConcurrentDictionary<string, IEnumerable<HaEntity>> _persistentHaEntities = new();
+        private readonly ConcurrentDictionary<string, CarContext> _cars = new();
 
         private readonly AppSettings _appSettings;
         private readonly FiatSettings _fiatSettings;
@@ -99,113 +98,24 @@ namespace FiatChamp.App
                 if (_appSettings.AutoRefreshLocation) 
                     await TrySendCommand(_fiatClient, FiatCommands.VF, vehicleInfo.Vehicle.Vin);
 
-                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+                // await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
 
-                var haDevice = new HaDevice
-                {
-                    Name = string.IsNullOrEmpty(vehicleInfo.Vehicle.Nickname) ? "Car" : vehicleInfo.Vehicle.Nickname,
-                    Identifiers = [vehicleInfo.Vehicle.Vin],
-                    Manufacturer = vehicleInfo.Vehicle.Make,
-                    Model = vehicleInfo.Vehicle.ModelDescription,
-                    Version = "1.0"
-                };
+                if (!_cars.TryGetValue(vehicleInfo.Vehicle.Vin, out var context))
+                    context = new CarContext(_haClient.MqttClient, vehicleInfo.Vehicle);
 
+                // Location
                 var currentCarLocation = new Coordinate(vehicleInfo.Location.Latitude, vehicleInfo.Location.Longitude);
-
                 var zones = states.GetZones().OrderByDistance(currentCarLocation);
-                _logger.LogDebug("Zones: {zones}", zones.Dump());
 
-                var tracker = new HaTracker(_haClient.MqttClient, haDevice, "CAR_LOCATION")
-                {
-                    Lat = currentCarLocation.Latitude.ToDouble(),
-                    Lon = currentCarLocation.Longitude.ToDouble(),
-                    StateValue = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation
-                };
+                await context.UpdateLocationAsync( currentCarLocation, zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation);
+                await context.UpdateSensorsAsync(vehicleInfo.Details, shouldConvertKmToMiles);
+                await context.UpdateTimestampAsync();
 
-                _logger.LogInformation("Car is at location: {location}", tracker.Dump());
+                // context.UpdateEntities(_fiatClient, vehicleInfo);
 
-                _logger.LogDebug("Announce sensor: {sensor}", tracker.Dump());
-                await tracker.AnnounceAsync();
-                await tracker.PublishStateAsync();
+                context.Entities ??= CreateInteractiveEntities(vehicleInfo, context.Device).ToList();
 
-                var flattenDetails = vehicleInfo.Details.Flatten("car");
-                var sensors = flattenDetails.Select(detail =>
-                {
-                    var sensor = new HaSensor(_haClient.MqttClient, haDevice, detail.Key)
-                    {
-                        Value = detail.Value
-                    };
-
-                    if (detail.Key.EndsWith("_value"))
-                    {
-                        var unitKey = detail.Key.Replace("_value", "_unit");
-
-                        flattenDetails.TryGetValue(unitKey, out var tmpUnit);
-
-                        if (tmpUnit == "km")
-                        {
-                            sensor.DeviceClass = "distance";
-
-                            if (shouldConvertKmToMiles && int.TryParse(detail.Value, out var kmValue))
-                            {
-                                var miValue = Math.Round(kmValue * 0.62137, 2);
-                                sensor.Value = miValue.ToString(CultureInfo.InvariantCulture);
-                                tmpUnit = "mi";
-                            }
-                        }
-
-                        switch (tmpUnit)
-                        {
-                            case "volts":
-                                sensor.DeviceClass = "voltage";
-                                sensor.Unit = "V";
-                                break;
-                            case null or "null":
-                                sensor.Unit = "";
-                                break;
-                            default:
-                                sensor.Unit = tmpUnit;
-                                break;
-                        }
-                    }
-
-                    return sensor;
-                }).ToDictionary(k => k.Name, v => v);
-
-                if (sensors.TryGetValue("car_evInfo_battery_stateOfCharge", out var stateOfChargeSensor))
-                {
-                    stateOfChargeSensor.DeviceClass = "battery";
-                    stateOfChargeSensor.Unit = "%";
-                }
-
-                if (sensors.TryGetValue("car_evInfo_battery_timeToFullyChargeL2", out var timeToFullyChargeSensor))
-                {
-                    timeToFullyChargeSensor.DeviceClass = "duration";
-                    timeToFullyChargeSensor.Unit = "min";
-                }
-
-                _logger.LogDebug("Announce sensors: {sensor}", sensors.Dump());
-                _logger.LogInformation("Pushing new sensors and values to Home Assistant");
-
-                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.AnnounceAsync(); });
-
-                _logger.LogDebug("Waiting for home assistant to process all sensors");
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-
-                await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishStateAsync(); });
-
-                var lastUpdate = new HaSensor(_haClient.MqttClient, haDevice, "LAST_UPDATE")
-                {
-                    Value = DateTime.Now.ToString("O"),
-                    DeviceClass = "timestamp"
-                };
-
-                await lastUpdate.AnnounceAsync();
-                await lastUpdate.PublishStateAsync();
-
-                var haEntities = _persistentHaEntities.GetOrAdd(vehicleInfo.Vehicle.Vin, s => CreateInteractiveEntities(vehicleInfo, haDevice));
-
-                foreach (var haEntity in haEntities)
+                foreach (var haEntity in context.Entities)
                 {
                     _logger.LogDebug("Announce sensor: {sensor}", haEntity.Dump());
                     await haEntity.AnnounceAsync();
