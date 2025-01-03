@@ -2,7 +2,7 @@ using FiatChamp.Ha.Model;
 
 namespace FiatChamp.Ha.Entities;
 
-public class HaSwitch : HaActionEntity<HaSwitch>
+public class HaSwitch : HaCommand<HaSwitch>
 {
     public bool IsOn { get; private set; }
 
@@ -17,16 +17,8 @@ public class HaSwitch : HaActionEntity<HaSwitch>
         });
     }
 
-    public override async Task PublishStateAsync() =>
-        await MqttClient.PublishAsync(StateTopic, IsOn ? "ON" : "OFF");
+    protected override string GetState() => IsOn ? "ON" : "OFF";
 
-    public override async Task AnnounceAsync() => await MqttClient.PublishJsonAsync(ConfigTopic, new HaAnnouncement
-    {
-        Device = Device,
-        Name = Name,
-        CommandTopic = CommandTopic,
-        StateTopic = StateTopic,
-        UniqueId = Id,
-        Platform = "mqtt",
-    });
+    protected override void BuildAnnouncement(HaAnnouncement announcement) => 
+        announcement.StateTopic = StateTopic;
 }

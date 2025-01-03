@@ -8,10 +8,10 @@ public abstract class HaEntity
     protected HaDevice Device { get; }
     protected string Id { get; }
 
-    protected string CommandTopic { get; }
     protected string ConfigTopic { get; }
     protected string StateTopic { get; }
     protected string AttributesTopic { get; }
+    protected string CommandTopic { get; }
 
     public string Name { get; }
 
@@ -21,14 +21,37 @@ public abstract class HaEntity
         Device = device;
         Id = $"{device.Identifiers.First()}_{name}";
 
-        CommandTopic = $"homeassistant/{type}/{Id}/set";
         ConfigTopic = $"homeassistant/{type}/{Id}/config";
         StateTopic = $"homeassistant/{type}/{Id}/state";
         AttributesTopic = $"homeassistant/{type}/{Id}/attributes";
-
+        CommandTopic = $"homeassistant/{type}/{Id}/set";
+        
         Name = name;
     }
 
-    public abstract Task PublishStateAsync();
-    public abstract Task AnnounceAsync();
+    public virtual async Task PublishStateAsync()
+    {
+        var state = GetState();
+        if (state is not null)
+            await MqttClient.PublishJsonAsync(StateTopic, GetState());
+    }
+
+    public virtual async Task AnnounceAsync()
+    {
+        var announcement = new HaAnnouncement
+        {
+            Device = Device,
+            Name = Name,
+            UniqueId = Id,
+            Platform = "mqtt"
+        };
+        BuildAnnouncement(announcement);
+        await MqttClient.PublishJsonAsync(ConfigTopic, announcement);
+    }
+
+    protected virtual string? GetState() => null;
+
+    protected virtual void BuildAnnouncement(HaAnnouncement announcement)
+    {
+    }
 }

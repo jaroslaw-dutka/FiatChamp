@@ -15,8 +15,8 @@ public class CarContext
 
     public string Vin { get; }
     public HaDevice Device { get; }
-    public HaTracker? Tracker { get; private set;}
-    public HaSensor? LastUpdate { get; private set; }
+    public HaSensor<HaLocation>? Location { get; private set;}
+    public HaSensor? Timestamp { get; private set; }
     public Dictionary<string, HaSensor> Sensors { get; } = new();
     public Dictionary<string, HaEntity> Entities { get;} = new();
     
@@ -37,19 +37,23 @@ public class CarContext
 
     public async Task UpdateLocationAsync(Coordinate location, string zone)
     {
-        if (Tracker is null)
+        if (Location is null)
         {
-            Tracker = new HaTracker(_mqtt, Device, "CAR_LOCATION");
-            await Tracker.AnnounceAsync();
+            Location = new HaSensor<HaLocation>(_mqtt, Device, "CAR_LOCATION");
+            await Location.AnnounceAsync();
         }
 
-        Tracker.Lat = location.Latitude.ToDouble();
-        Tracker.Lon = location.Longitude.ToDouble();
-        Tracker.StateValue = zone;
-            
-        await Tracker.PublishStateAsync();
+        Location.State = zone;
+        Location.Attributes = new HaLocation
+        {
+            Latitude = location.Latitude.ToDouble(),
+            Longitude = location.Longitude.ToDouble(),
+            SourceType = "gps",
+            GpsAccuracy = 2
+        };
 
-        
+        await Location.PublishStateAsync();
+
         // _logger.LogInformation("Car is at location: {location}", context.Tracker.Dump());
         // _logger.LogDebug("Announce sensor: {sensor}", context.Tracker.Dump());
     }
@@ -70,7 +74,7 @@ public class CarContext
                 await sensor.AnnounceAsync();
             }
 
-            sensor.Value = detail.Value;
+            sensor.State = detail.Value;
 
             if (sensor.Name == "car_evInfo_battery_stateOfCharge")
             {
@@ -95,7 +99,7 @@ public class CarContext
                     if (shouldConvertKmToMiles && int.TryParse(detail.Value, out var kmValue))
                     {
                         var miValue = Math.Round(kmValue * 0.62137, 2);
-                        sensor.Value = miValue.ToString(CultureInfo.InvariantCulture);
+                        sensor.State = miValue.ToString(CultureInfo.InvariantCulture);
                         tmpUnit = "mi";
                     }
                 }
@@ -128,7 +132,7 @@ public class CarContext
         // await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishStateAsync(); });
     }
 
-    public async Task UpdateEntityAsync<TEntity>(string name, Func<TEntity, Task> onPressedCommand) where TEntity : HaActionEntity<TEntity>
+    public async Task UpdateEntityAsync<TEntity>(string name, Func<TEntity, Task> onPressedCommand) where TEntity : HaCommand<TEntity>
     {
         if (Entities.ContainsKey(name))
             return;
@@ -139,17 +143,17 @@ public class CarContext
 
     public async Task UpdateTimestampAsync()
     {
-        if (LastUpdate is null)
+        if (Timestamp is null)
         {
-            LastUpdate = new HaSensor(_mqtt, Device, "LAST_UPDATE")
+            Timestamp = new HaSensor(_mqtt, Device, "LAST_UPDATE")
             {
                 DeviceClass = "timestamp"
             };
-            await LastUpdate.AnnounceAsync();
+            await Timestamp.AnnounceAsync();
         }
 
-        LastUpdate.Value = DateTime.Now.ToString("O");
+        Timestamp.State = DateTime.Now.ToString("O");
 
-        await LastUpdate.PublishStateAsync();
+        await Timestamp.PublishStateAsync();
     }
 }
