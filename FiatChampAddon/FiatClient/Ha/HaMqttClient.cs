@@ -72,6 +72,9 @@ namespace FiatChamp.Ha
             {
                 var msg = args.ApplicationMessage;
                 var payload = msg.ConvertPayloadToString();
+
+                _logger.LogDebug("MQTT: {topic} - {payload}", msg.Topic, payload);
+
                 if (_setEntities.TryGetValue(msg.Topic, out var command))
                 {
                     await command.OnSetAsync(payload);

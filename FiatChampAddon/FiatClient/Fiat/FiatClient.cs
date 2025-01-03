@@ -177,15 +177,15 @@ public class FiatClient : IFiatClient
             var msg = args.ApplicationMessage;
             var payload = msg.ConvertPayloadToString();
 
-            _logger.LogInformation(msg.Topic + ": " + payload);
+            _logger.LogDebug("MQTT: {topic} - {payload}", msg.Topic, payload);
 
             var item = JsonSerializer.Deserialize<NotificationItem>(payload);
             if (_commands.TryRemove(item.CorrelationId, out var commandTask))
             {
-                if (string.Equals(item.Notification.Data.Status, "Success", StringComparison.InvariantCultureIgnoreCase))
+                if (string.Equals(item.Notification.Data.Status, "success", StringComparison.InvariantCultureIgnoreCase))
                     commandTask.SetResult();
                 else
-                    commandTask.SetException(new Exception("Command failed"));
+                    commandTask.SetException(new Exception($"Command failed. Status: {item.Notification.Data.Status}."));
             }
 
             return Task.CompletedTask;

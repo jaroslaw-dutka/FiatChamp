@@ -10,7 +10,7 @@ namespace FiatChamp.Extensions;
 
 public static class FlurlExtensions
 {
-    public static IFlurlRequest AwsSign(this IFlurlRequest request, ImmutableCredentials credentials, RegionEndpoint regionEndpoint, object? data = null)
+    public static IFlurlRequest SignAws(this IFlurlRequest request, ImmutableCredentials credentials, RegionEndpoint regionEndpoint, object? data = null)
     {
         return request.BeforeCall(call =>
         {
@@ -22,9 +22,9 @@ public static class FlurlExtensions
         });
     }
 
-    public static async Task<IFlurlResponse> AwsSignAndPostJsonAsync(this IFlurlRequest request, ImmutableCredentials credentials, RegionEndpoint regionEndpoint, object? data = null) =>
+    public static async Task<IFlurlResponse> SignAwsAndPostJsonAsync(this IFlurlRequest request, ImmutableCredentials credentials, RegionEndpoint regionEndpoint, object? data = null) =>
         await request
-            .AwsSign(credentials, regionEndpoint, data)
+            .SignAws(credentials, regionEndpoint, data)
             .PostJsonAsync(data);
 
     public static async Task<T> DumpResponseAsync<T>(this Task<T> resultTask, ILogger logger)

@@ -75,7 +75,7 @@ public class FiatApiClient : IFiatApiClient
         .Request(_apiConfig.AuthUrl)
         .AppendPathSegments("v1", "accounts", session.UserId, "ignite", "pin", "authenticate")
         .WithHeaders(WithAwsHeaders(_apiConfig.AuthApiKey))
-        .AwsSignAndPostJsonAsync(session.AwsCredentials, _apiConfig.AwsEndpoint, new
+        .SignAwsAndPostJsonAsync(session.AwsCredentials, _apiConfig.AwsEndpoint, new
         {
             pin = Convert.ToBase64String(Encoding.UTF8.GetBytes(pin))
         })
@@ -86,7 +86,7 @@ public class FiatApiClient : IFiatApiClient
         .Request(_apiConfig.ApiUrl)
         .AppendPathSegments("v1", "accounts", session.UserId, "vehicles", vin, action)
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
-        .AwsSignAndPostJsonAsync(session.AwsCredentials, _apiConfig.AwsEndpoint, new
+        .SignAwsAndPostJsonAsync(session.AwsCredentials, _apiConfig.AwsEndpoint, new
         {
             command, pinAuth = pinToken
         })
@@ -98,14 +98,15 @@ public class FiatApiClient : IFiatApiClient
         .AppendPathSegments("v4", "accounts", session.UserId, "vehicles")
         .SetQueryParam("stage", "ALL")
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
-        .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
-        .GetJsonAsync<VehicleResponse>();
+        .SignAws(session.AwsCredentials, _apiConfig.AwsEndpoint)
+        .GetJsonAsync<VehicleResponse>()
+        .DumpResponseAsync(_logger);
 
     public async Task<JsonObject> GetVehicleDetails(FiatSession session, string vin) => await _flurlClient
         .Request(_apiConfig.ApiUrl)
         .AppendPathSegments("v2", "accounts", session.UserId, "vehicles", vin, "status")
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
-        .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
+        .SignAws(session.AwsCredentials, _apiConfig.AwsEndpoint)
         .GetJsonAsync<JsonObject>()
         .DumpResponseAsync(_logger);
 
@@ -113,7 +114,7 @@ public class FiatApiClient : IFiatApiClient
         .Request(_apiConfig.ApiUrl)
         .AppendPathSegments("v1", "accounts", session.UserId, "vehicles", vin, "location", "lastknown")
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
-        .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
+        .SignAws(session.AwsCredentials, _apiConfig.AwsEndpoint)
         .GetJsonAsync<VehicleLocation>()
         .DumpResponseAsync(_logger);
 
@@ -124,7 +125,7 @@ public class FiatApiClient : IFiatApiClient
         .SetQueryParam("since", 1732399706408)
         .SetQueryParam("till", 1735647290831)
         .WithHeaders(WithAwsHeaders(_apiConfig.ApiKey))
-        .AwsSign(session.AwsCredentials, _apiConfig.AwsEndpoint)
+        .SignAws(session.AwsCredentials, _apiConfig.AwsEndpoint)
         .GetJsonAsync<NotificationsResponse>()
         .DumpResponseAsync(_logger);
 
