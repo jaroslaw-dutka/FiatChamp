@@ -56,7 +56,7 @@ public class HaMqttClient : IHaMqttClient
 
         _client.ConnectingFailedAsync += args =>
         {
-            _logger.LogInformation("Failed to connect to HomeAssistant MQTT: " + args.ConnectResult.ReasonString);
+            _logger.LogInformation("Failed to connect to HomeAssistant MQTT: " + args.ConnectResult?.ReasonString);
             return Task.CompletedTask;
         };
 

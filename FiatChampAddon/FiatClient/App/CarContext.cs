@@ -39,7 +39,10 @@ public class CarContext
     {
         if (Location is null)
         {
-            Location = new HaSensor<HaLocation>(_mqtt, Device, "CAR_LOCATION");
+            Location = new HaSensor<HaLocation>(_mqtt, Device, "CAR_LOCATION")
+            {
+                Icon = "mdi:map-marker"
+            };
             await Location.AnnounceAsync();
         }
 
@@ -147,7 +150,8 @@ public class CarContext
         {
             Timestamp = new HaSensor(_mqtt, Device, "LAST_UPDATE")
             {
-                DeviceClass = "timestamp"
+                DeviceClass = "timestamp",
+                Icon = "mdi:timer-sync"
             };
             await Timestamp.AnnounceAsync();
         }

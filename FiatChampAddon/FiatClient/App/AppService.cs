@@ -107,7 +107,7 @@ namespace FiatChamp.App
                 
                 // Entities
                 await BindButton(context, "UpdateLocation", FiatCommands.VF, vehicleInfo.Vehicle.Vin);
-                await BindButton(context, "RefreshBatteryStatus", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
+                await BindButton(context, "UpdateBattery", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "DeepRefresh", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "Blink", FiatCommands.HBLF, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "ChargeNOW", FiatCommands.CNOW, vehicleInfo.Vehicle.Vin);
