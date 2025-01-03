@@ -1,6 +1,6 @@
 namespace FiatChamp.Ha.Entities;
 
-public interface IHaEntityState
+public interface IHaStateEntity : IHaSetEntity
 {
     string State { get; }
 }

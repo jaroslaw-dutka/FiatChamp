@@ -20,11 +20,13 @@ public class HaAnnouncement
     public string? AttributesTopic { get; set; }
 
     [JsonPropertyName("unit_of_measurement")]
-    public string UnitOfMeasurement { get; set; }
+    public string? UnitOfMeasurement { get; set; }
+
     [JsonPropertyName("device_class")]
-    public string DeviceClass { get; set; }
+    public string? DeviceClass { get; set; }
+
     [JsonPropertyName("icon")]
-    public string Icon { get; set; }
+    public string? Icon { get; set; }
 
     [JsonPropertyName("unique_id")]
     public string UniqueId { get; set; }

@@ -3,10 +3,9 @@ using FiatChamp.Fiat;
 using FiatChamp.Ha;
 using Flurl.Http;
 using System.Collections.Concurrent;
+using FiatChamp.Extensions;
 using Microsoft.Extensions.Options;
 using FiatChamp.Fiat.Model;
-using FiatChamp.Extensions;
-using FiatChamp.Ha.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace FiatChamp.App
@@ -16,20 +15,21 @@ namespace FiatChamp.App
         private readonly AutoResetEvent _forceLoopResetEvent = new(false);
         private readonly ConcurrentDictionary<string, CarContext> _cars = new();
 
+        private readonly ILogger<AppService> _logger;
         private readonly AppSettings _appSettings;
         private readonly FiatSettings _fiatSettings;
-
-        private readonly ILogger<AppService> _logger;
         private readonly IFiatClient _fiatClient;
-        private readonly IHaClient _haClient;
+        private readonly IHaApiClient _haApiClient;
+        private readonly IHaMqttClient _haMqttClient;
 
-        public AppService(ILogger<AppService> logger, IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IHaClient haClient)
+        public AppService(ILogger<AppService> logger, IOptions<AppSettings> appConfig, IOptions<FiatSettings> fiatConfig, IFiatClient fiatClient, IHaApiClient haApiClient, IHaMqttClient haMqttClient)
         {
+            _logger = logger;
             _appSettings = appConfig.Value;
             _fiatSettings = fiatConfig.Value;
-            _logger = logger;
             _fiatClient = fiatClient;
-            _haClient = haClient;
+            _haApiClient = haApiClient;
+            _haMqttClient = haMqttClient;
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
@@ -38,7 +38,7 @@ namespace FiatChamp.App
             await Task.Delay(TimeSpan.FromSeconds(_appSettings.StartDelaySeconds), cancellationToken);
 
             _logger.LogInformation("Connecting to HomeAssistant");
-            await _haClient.ConnectAsync(cancellationToken);
+            await _haMqttClient.ConnectAsync(cancellationToken);
 
             _logger.LogInformation("Connecting to Fiat");
             await _fiatClient.ConnectAsync(cancellationToken);
@@ -73,13 +73,13 @@ namespace FiatChamp.App
         {
             _logger.LogInformation("Now fetching new data...");
 
-            var config = await _haClient.ApiClient.GetConfigAsync();
+            var config = await _haApiClient.GetConfigAsync();
             _logger.LogInformation("Using unit system: {unit}", config.UnitSystem.Dump());
 
             var shouldConvertKmToMiles = _appSettings.ConvertKmToMiles || config.UnitSystem.Length != "km";
             _logger.LogInformation("Convert km -> miles ? {shouldConvertKmToMiles}", shouldConvertKmToMiles);
 
-            var states = await _haClient.ApiClient.GetStatesAsync();
+            var states = await _haApiClient.GetStatesAsync();
 
             foreach (var vehicleInfo in await _fiatClient.GetVehiclesAsync())
             {
@@ -91,54 +91,59 @@ namespace FiatChamp.App
                 if (_appSettings.AutoRefreshLocation) 
                     await TrySendCommand(FiatCommands.VF, vehicleInfo.Vehicle.Vin);
 
-                // await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
-
                 if (!_cars.TryGetValue(vehicleInfo.Vehicle.Vin, out var context))
-                    context = new CarContext(_haClient.MqttClient, vehicleInfo.Vehicle);
+                {
+                    context = new CarContext(_haMqttClient, vehicleInfo.Vehicle);
+                    _cars.TryAdd(vehicleInfo.Vehicle.Vin, context);
+                }
 
                 // Location
                 var location = new Coordinate(vehicleInfo.Location.Latitude, vehicleInfo.Location.Longitude);
                 var zones = states.GetZones().OrderByDistance(location);
-                _logger.LogDebug("Zones: {zones}", zones.Dump());
-                await context.UpdateLocationAsync(location, zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation);
+                var currentZone = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation;
+                await context.ProcessLocationAsync(location, currentZone);
 
-                // Sensors
-                await context.UpdateSensorsAsync(vehicleInfo.Details, shouldConvertKmToMiles);
+                // Details
+                await context.ProcessDetailsAsync(vehicleInfo.Details, shouldConvertKmToMiles);
                 
-                // Entities
+                // Buttons
                 await BindButton(context, "UpdateLocation", FiatCommands.VF, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "UpdateBattery", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "DeepRefresh", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "Blink", FiatCommands.HBLF, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "ChargeNOW", FiatCommands.CNOW, vehicleInfo.Vehicle.Vin);
+
+                // Switches
                 await BindSwitch(context, "Trunk", FiatCommands.ROTRUNKUNLOCK, FiatCommands.ROTRUNKLOCK, vehicleInfo.Vehicle.Vin);
                 await BindSwitch(context, "HVAC", FiatCommands.ROPRECOND, FiatCommands.ROPRECOND_OFF, vehicleInfo.Vehicle.Vin);
                 await BindSwitch(context, "DoorLock", FiatCommands.RDL, FiatCommands.RDU, vehicleInfo.Vehicle.Vin);
 
                 // Timestamp
-                await context.UpdateTimestampAsync();
+                await context.ProcessTimestampAsync();
             }
         }
 
-        private async Task BindButton(CarContext context, string name, FiatCommand command, string vin) => await context.UpdateEntityAsync<HaButton>(name, async _ =>
+        private async Task BindButton(CarContext context, string name, FiatCommand command, string vin) => await context.ProcessButtonAsync(name, async (entity, state) =>
         {
             if (await TrySendCommand(command, vin))
                 _forceLoopResetEvent.Set();
         });
 
-        private async Task BindSwitch(CarContext context, string name, FiatCommand offCommand, FiatCommand onCommand, string vin) => await context.UpdateEntityAsync<HaSwitch>(name, async sw =>
+        private async Task BindSwitch(CarContext context, string name, FiatCommand offCommand, FiatCommand onCommand, string vin) => await context.ProcessSwitchAsync(name, async (entity, state) =>
         {
-            if (await TrySendCommand(sw.IsOn ? offCommand : onCommand, vin))
+            if (await TrySendCommand(entity.IsOn ? offCommand : onCommand, vin))
                 _forceLoopResetEvent.Set();
         });
 
         private async Task<bool> TrySendCommand(FiatCommand command, string vin)
         {
-            if (!command.IsDangerous || _appSettings.EnableDangerousCommands) 
-                return await _fiatClient.TrySendCommandAsync(vin, command.Message, _fiatSettings.Pin, command.Action);
+            if (command.IsDangerous && !_appSettings.EnableDangerousCommands)
+            {
+                _logger.LogWarning("{command} not sent. Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
+                return false;
+            }
 
-            _logger.LogWarning("{command} not sent. Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
-            return false;
+            return await _fiatClient.TrySendCommandAsync(vin, command.Message, _fiatSettings.Pin, command.Action);
         }
     }
 }

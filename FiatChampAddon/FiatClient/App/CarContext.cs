@@ -11,7 +11,7 @@ namespace FiatChamp.App;
 
 public class CarContext
 {
-    private readonly IHaMqttClient _mqtt;
+    private readonly IHaMqttClient _haMqttClient;
 
     public string Vin { get; }
     public HaDevice Device { get; }
@@ -20,11 +20,12 @@ public class CarContext
     public Dictionary<string, HaSensor> Sensors { get; } = new();
     public Dictionary<string, HaEntity> Entities { get;} = new();
     
-    public CarContext(IHaMqttClient mqtt, Vehicle vehicle)
+    public CarContext(IHaMqttClient haMqttClient, Vehicle vehicle)
     {
-        _mqtt = mqtt;
+        _haMqttClient = haMqttClient;
 
         Vin = vehicle.Vin;
+
         Device = new HaDevice
         {
             Name = string.IsNullOrEmpty(vehicle.Nickname) ? "Car" : vehicle.Nickname,
@@ -35,15 +36,15 @@ public class CarContext
         };
     }
 
-    public async Task UpdateLocationAsync(Coordinate location, string zone)
+    public async Task ProcessLocationAsync(Coordinate location, string zone)
     {
         if (Location is null)
         {
-            Location = new HaSensor<HaLocation>(_mqtt, Device, "CAR_LOCATION")
+            Location = new HaSensor<HaLocation>(Device, "CAR_LOCATION")
             {
                 Icon = "mdi:map-marker"
             };
-            await Location.AnnounceAsync();
+            await _haMqttClient.AnnounceAsync(Location);
         }
 
         Location.State = zone;
@@ -55,13 +56,10 @@ public class CarContext
             GpsAccuracy = 2
         };
 
-        await Location.PublishStateAsync();
-
-        // _logger.LogInformation("Car is at location: {location}", context.Tracker.Dump());
-        // _logger.LogDebug("Announce sensor: {sensor}", context.Tracker.Dump());
+        await _haMqttClient.PublishAsync(Location);
     }
 
-    public async Task UpdateSensorsAsync(JsonNode vehicleInfoDetails, bool shouldConvertKmToMiles)
+    public async Task ProcessDetailsAsync(JsonNode vehicleInfoDetails, bool shouldConvertKmToMiles)
     {
         var flattenDetails = vehicleInfoDetails.Flatten("car");
         foreach (var detail in flattenDetails)
@@ -71,10 +69,9 @@ public class CarContext
 
             if (!Sensors.TryGetValue(detail.Key, out var sensor))
             {
-                sensor = new HaSensor(_mqtt, Device, detail.Key);
+                sensor = new HaSensor(Device, detail.Key);
                 Sensors.Add(detail.Key, sensor);
-                // _logger.LogDebug("Announce sensors: {sensor}", sensors.Dump());
-                await sensor.AnnounceAsync();
+                await _haMqttClient.AnnounceAsync(sensor);
             }
 
             sensor.State = detail.Value;
@@ -82,12 +79,12 @@ public class CarContext
             if (sensor.Name == "car_evInfo_battery_stateOfCharge")
             {
                 sensor.DeviceClass = "battery";
-                sensor.Unit = "%";
+                sensor.UnitOfMeasurement = "%";
             }
             else if (sensor.Name == "car_evInfo_battery_timeToFullyChargeL2")
             {
                 sensor.DeviceClass = "duration";
-                sensor.Unit = "min";
+                sensor.UnitOfMeasurement = "min";
             }
             else if (detail.Key.EndsWith("_value"))
             {
@@ -111,53 +108,59 @@ public class CarContext
                 {
                     case "volts":
                         sensor.DeviceClass = "voltage";
-                        sensor.Unit = "V";
+                        sensor.UnitOfMeasurement = "V";
                         break;
                     case null or "null":
-                        sensor.Unit = "";
+                        sensor.UnitOfMeasurement = "";
                         break;
                     default:
-                        sensor.Unit = tmpUnit;
+                        sensor.UnitOfMeasurement = tmpUnit;
                         break;
                 }
             }
 
-            await sensor.PublishStateAsync();
+            await _haMqttClient.PublishAsync(sensor);
         }
-
-        // _logger.LogInformation("Pushing new sensors and values to Home Assistant");
-
-        // await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.AnnounceAsync(); });
-
-        // _logger.LogDebug("Waiting for home assistant to process all sensors");
-        // await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-
-        // await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishStateAsync(); });
     }
 
-    public async Task UpdateEntityAsync<TEntity>(string name, Func<TEntity, Task> onPressedCommand) where TEntity : HaCommand<TEntity>, IHaEntityCommand
+    public async Task ProcessButtonAsync(string name, Func<HaButton, string, Task> action)
     {
         if (Entities.ContainsKey(name))
             return;
-        var button = Activator.CreateInstance(typeof(TEntity), _mqtt, Device, name, onPressedCommand) as TEntity;
-        Entities.Add(name, button!);
-        await button!.AnnounceAsync();
+
+        var button = new HaButton(Device, name, action);
+        Entities.Add(name, button);
+
+        _haMqttClient.Subscribe(button);
+        await _haMqttClient.AnnounceAsync(button);
     }
 
-    public async Task UpdateTimestampAsync()
+    public async Task ProcessSwitchAsync(string name, Func<HaSwitch, string, Task> action)
+    {
+        if (Entities.ContainsKey(name))
+            return;
+
+        var @switch = new HaSwitch(Device, name, action);
+        Entities.Add(name, @switch);
+
+        _haMqttClient.Subscribe(@switch);
+        await _haMqttClient.AnnounceAsync(@switch);
+    }
+
+    public async Task ProcessTimestampAsync()
     {
         if (Timestamp is null)
         {
-            Timestamp = new HaSensor(_mqtt, Device, "LAST_UPDATE")
+            Timestamp = new HaSensor(Device, "LAST_UPDATE")
             {
                 DeviceClass = "timestamp",
                 Icon = "mdi:timer-sync"
             };
-            await Timestamp.AnnounceAsync();
+            await _haMqttClient.AnnounceAsync(Timestamp);
         }
 
         Timestamp.State = DateTime.Now.ToString("O");
 
-        await Timestamp.PublishStateAsync();
+        await _haMqttClient.PublishAsync(Timestamp);
     }
 }

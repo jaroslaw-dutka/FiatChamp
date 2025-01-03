@@ -1,9 +1,11 @@
+﻿using FiatChamp.Ha.Entities;
+
 namespace FiatChamp.Ha;
 
 public interface IHaMqttClient
 {
-    Task ConnectAsync();
-    Task SubscribeAsync(string topic, Func<string, Task> callback);
-    Task PublishAsync(string topic, string payload);
-    Task PublishJsonAsync<T>(string topic, T payload);
+    Task ConnectAsync(CancellationToken cancellationToken);
+    Task AnnounceAsync(IHaEntity entity);
+    Task PublishAsync(IHaEntity entity);
+    void Subscribe(IHaSetEntity entity);
 }

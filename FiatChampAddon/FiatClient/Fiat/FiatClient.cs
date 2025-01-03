@@ -18,7 +18,6 @@ public class FiatClient : IFiatClient
     private readonly IFiatApiClient _apiClient;
     private readonly FiatApiConfig _apiConfig;
     private readonly AmazonCognitoIdentityClient _cognitoClient;
-
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _commands = new();
     private FiatSession? _fiatSession;
     private IManagedMqttClient _client;
@@ -163,8 +162,6 @@ public class FiatClient : IFiatClient
                     { "host", signedUri.Host }
                 });
             })
-            .WithTls()
-            // .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
             .WithCleanSession();
 
         var options = new ManagedMqttClientOptionsBuilder()

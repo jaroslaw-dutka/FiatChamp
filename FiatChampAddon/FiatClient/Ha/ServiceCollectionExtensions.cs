@@ -9,7 +9,6 @@ namespace FiatChamp.Ha
             .Configure<HaApiSettings>(configuration.GetSection("ha:api"))
             .Configure<HaMqttSettings>(configuration.GetSection("ha:mqtt"))
             .AddSingleton<IHaApiClient, HaApiClient>()
-            .AddSingleton<IHaMqttClient, HaMqttClient>()
-            .AddSingleton<IHaClient, HaClient>();
+            .AddSingleton<IHaMqttClient, HaMqttClient>();
     }
 }
