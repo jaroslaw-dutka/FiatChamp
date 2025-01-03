@@ -2,7 +2,7 @@ using FiatChamp.Ha.Model;
 
 namespace FiatChamp.Ha.Entities;
 
-public class HaButton : HaCommand<HaButton>
+public class HaButton : HaCommand<HaButton>, IHaEntityCommand
 {
     public HaButton(IHaMqttClient mqttClient, HaDevice device, string name, Func<HaButton, Task> action) : base("button", mqttClient, device, name, action)
     {

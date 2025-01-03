@@ -1,8 +1,9 @@
 using FiatChamp.Ha.Model;
+using System.Text.Json;
 
 namespace FiatChamp.Ha.Entities;
 
-public class HaSensor : HaEntity
+public class HaSensor : HaEntity, IHaEntityState
 {
     public string State { get; set; }
     public string Icon { get; set; } = "mdi:eye";
@@ -13,31 +14,20 @@ public class HaSensor : HaEntity
     {
     }
 
-    protected override string GetState() => State;
-
     protected override void BuildAnnouncement(HaAnnouncement announcement)
     {
         announcement.UnitOfMeasurement = Unit;
         announcement.DeviceClass = DeviceClass;
         announcement.Icon = Icon;
-        announcement.StateTopic = StateTopic;
     }
 }
 
-public class HaSensor<TAttributes> : HaSensor
+public class HaSensor<T> : HaSensor, IHaEntityAttributes
 {
-    public TAttributes Attributes { get; set; }
+    public string SerializedAttributes => JsonSerializer.Serialize(Attributes);
+    public T Attributes { get; set; }
 
     public HaSensor(IHaMqttClient mqttClient, HaDevice device, string name) : base(mqttClient, device, name)
     {
     }
-
-    public override async Task PublishStateAsync()
-    {
-        await base.PublishStateAsync();
-        await MqttClient.PublishJsonAsync(AttributesTopic, Attributes);
-    }
-
-    protected override void BuildAnnouncement(HaAnnouncement announcement) => 
-        announcement.JsonAttributesTopic = AttributesTopic;
 }

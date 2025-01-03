@@ -2,7 +2,7 @@ using FiatChamp.Ha.Model;
 
 namespace FiatChamp.Ha.Entities;
 
-public abstract class HaCommand<TEntity> : HaEntity where TEntity: HaCommand<TEntity>
+public abstract class HaCommand<TEntity> : HaEntity where TEntity: HaCommand<TEntity>, IHaEntityCommand
 {
     protected readonly Func<TEntity, Task> Action;
 
@@ -10,7 +10,4 @@ public abstract class HaCommand<TEntity> : HaEntity where TEntity: HaCommand<TEn
     {
         Action = action;
     }
-
-    protected override void BuildAnnouncement(HaAnnouncement announcement) => 
-        announcement.CommandTopic = CommandTopic;
 }

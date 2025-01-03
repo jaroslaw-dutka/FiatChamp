@@ -132,7 +132,7 @@ public class CarContext
         // await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishStateAsync(); });
     }
 
-    public async Task UpdateEntityAsync<TEntity>(string name, Func<TEntity, Task> onPressedCommand) where TEntity : HaCommand<TEntity>
+    public async Task UpdateEntityAsync<TEntity>(string name, Func<TEntity, Task> onPressedCommand) where TEntity : HaCommand<TEntity>, IHaEntityCommand
     {
         if (Entities.ContainsKey(name))
             return;

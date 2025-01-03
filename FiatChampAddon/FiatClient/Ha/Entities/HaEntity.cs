@@ -31,25 +31,28 @@ public abstract class HaEntity
 
     public virtual async Task PublishStateAsync()
     {
-        var state = GetState();
-        if (state is not null)
-            await MqttClient.PublishJsonAsync(StateTopic, GetState());
+        if (this is IHaEntityState haState)
+            await MqttClient.PublishAsync(StateTopic, haState.State);
+        if (this is IHaEntityAttributes haAttributes)
+            await MqttClient.PublishAsync(AttributesTopic, haAttributes.SerializedAttributes);
     }
 
     public virtual async Task AnnounceAsync()
     {
+        var interfaces = GetType().GetInterfaces();
         var announcement = new HaAnnouncement
         {
             Device = Device,
             Name = Name,
             UniqueId = Id,
-            Platform = "mqtt"
+            Platform = "mqtt",
+            StateTopic = interfaces.Contains(typeof(IHaEntityState)) ? StateTopic : null,
+            AttributesTopic = interfaces.Contains(typeof(IHaEntityAttributes)) ? AttributesTopic : null,
+            CommandTopic = interfaces.Contains(typeof(IHaEntityCommand)) ? CommandTopic : null,
         };
         BuildAnnouncement(announcement);
         await MqttClient.PublishJsonAsync(ConfigTopic, announcement);
     }
-
-    protected virtual string? GetState() => null;
 
     protected virtual void BuildAnnouncement(HaAnnouncement announcement)
     {

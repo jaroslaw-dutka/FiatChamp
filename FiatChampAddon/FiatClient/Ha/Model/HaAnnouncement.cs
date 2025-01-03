@@ -11,13 +11,13 @@ public class HaAnnouncement
     public string Name { get; set; }
 
     [JsonPropertyName("command_topic")]
-    public string CommandTopic { get; set; }
+    public string? CommandTopic { get; set; }
 
     [JsonPropertyName("state_topic")]
-    public string StateTopic { get; set; }
+    public string? StateTopic { get; set; }
 
     [JsonPropertyName("json_attributes_topic")]
-    public string JsonAttributesTopic { get; set; }
+    public string? AttributesTopic { get; set; }
 
     [JsonPropertyName("unit_of_measurement")]
     public string UnitOfMeasurement { get; set; }
