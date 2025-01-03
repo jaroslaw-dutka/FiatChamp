@@ -83,7 +83,12 @@ public class FiatClient : IFiatClient
     public async Task SendCommandAsync(string vin, string command, string pin, string action)
     {
         ArgumentNullException.ThrowIfNull(_fiatSession);
-        
+
+        _logger.LogInformation("SEND COMMAND {command}: ", command);
+
+        if (string.IsNullOrWhiteSpace(pin))
+            throw new Exception("PIN NOT SET");
+
         var pinAuthResponse = await _apiClient.AuthenticatePin(_fiatSession, pin);
         var commandResponse = await _apiClient.SendCommand(_fiatSession, pinAuthResponse.Token, vin, action, command);
 
@@ -96,6 +101,23 @@ public class FiatClient : IFiatClient
 
         if (index < 0)
             throw new TimeoutException("Command timed out");
+    }
+
+    public async Task<bool> TrySendCommandAsync(string vin, string command, string pin, string action)
+    {
+        try
+        {
+            await SendCommandAsync(vin, command, pin, action);
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            _logger.LogInformation("Command: {command} SUCCESSFUL", command);
+            return true;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError("Command: {command} ERROR. Maybe wrong pin?", command);
+            _logger.LogDebug(e, e.Message);
+            return false;
+        }
     }
 
     private async Task LoginAsync()

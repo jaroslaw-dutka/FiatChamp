@@ -2,11 +2,11 @@ using FiatChamp.Ha.Model;
 
 namespace FiatChamp.Ha.Entities;
 
-public class HaButton : HaEntity
+public class HaButton : HaActionEntity<HaButton>
 {
-    public HaButton(IHaMqttClient mqttClient, HaDevice device, string name, Func<HaButton, Task> onPressedCommand) : base("button", mqttClient, device, name)
+    public HaButton(IHaMqttClient mqttClient, HaDevice device, string name, Func<HaButton, Task> action) : base("button", mqttClient, device, name, action)
     {
-        _ = mqttClient.SubscribeAsync(CommandTopic, async _ => { await onPressedCommand.Invoke(this); });
+        _ = mqttClient.SubscribeAsync(CommandTopic, async _ => { await action.Invoke(this); });
     }
 
     public override Task PublishStateAsync() =>

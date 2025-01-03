@@ -13,16 +13,18 @@ public class CarContext
 {
     private readonly IHaMqttClient _mqtt;
 
-    public HaDevice Device { get; set; }
-    public HaTracker? Tracker { get; set; }
-    public Dictionary<string, HaSensor>? Sensors { get; set; } = new();
-    public List<HaEntity>? Entities { get; set; }
-    public HaSensor? LastUpdate { get; set; }
-
+    public string Vin { get; }
+    public HaDevice Device { get; }
+    public HaTracker? Tracker { get; private set;}
+    public HaSensor? LastUpdate { get; private set; }
+    public Dictionary<string, HaSensor> Sensors { get; } = new();
+    public Dictionary<string, HaEntity> Entities { get;} = new();
+    
     public CarContext(IHaMqttClient mqtt, Vehicle vehicle)
     {
         _mqtt = mqtt;
 
+        Vin = vehicle.Vin;
         Device = new HaDevice
         {
             Name = string.IsNullOrEmpty(vehicle.Nickname) ? "Car" : vehicle.Nickname,
@@ -33,7 +35,7 @@ public class CarContext
         };
     }
 
-    public async Task UpdateLocationAsync(Coordinate currentCarLocation, string zone)
+    public async Task UpdateLocationAsync(Coordinate location, string zone)
     {
         if (Tracker is null)
         {
@@ -41,13 +43,13 @@ public class CarContext
             await Tracker.AnnounceAsync();
         }
 
-        Tracker.Lat = currentCarLocation.Latitude.ToDouble();
-        Tracker.Lon = currentCarLocation.Longitude.ToDouble();
+        Tracker.Lat = location.Latitude.ToDouble();
+        Tracker.Lon = location.Longitude.ToDouble();
         Tracker.StateValue = zone;
             
         await Tracker.PublishStateAsync();
 
-        // _logger.LogDebug("Zones: {zones}", zones.Dump());
+        
         // _logger.LogInformation("Car is at location: {location}", context.Tracker.Dump());
         // _logger.LogDebug("Announce sensor: {sensor}", context.Tracker.Dump());
     }
@@ -126,9 +128,13 @@ public class CarContext
         // await Parallel.ForEachAsync(sensors.Values, cancellationToken, async (sensor, token) => { await sensor.PublishStateAsync(); });
     }
 
-    public async Task UpdateButtonAsync(string name)
+    public async Task UpdateEntityAsync<TEntity>(string name, Func<TEntity, Task> onPressedCommand) where TEntity : HaActionEntity<TEntity>
     {
-        
+        if (Entities.ContainsKey(name))
+            return;
+        var button = Activator.CreateInstance(typeof(TEntity), _mqtt, Device, name, onPressedCommand) as TEntity;
+        Entities.Add(name, button!);
+        await button!.AnnounceAsync();
     }
 
     public async Task UpdateTimestampAsync()

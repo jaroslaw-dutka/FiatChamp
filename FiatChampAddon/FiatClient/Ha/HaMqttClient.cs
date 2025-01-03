@@ -50,19 +50,19 @@ public class HaMqttClient : IHaMqttClient
 
         _client.ConnectedAsync += args =>
         {
-            _logger.LogInformation("Connected to HA MQTT: " + args.ConnectResult.ReasonString);
+            _logger.LogInformation("Connected to HomeAssistant MQTT: " + args.ConnectResult.ReasonString);
             return Task.CompletedTask;
         };
 
         _client.ConnectingFailedAsync += args =>
         {
-            _logger.LogInformation("Connection to Fiat HA failed: " + args.ConnectResult.ReasonString);
+            _logger.LogInformation("Failed to connect to HomeAssistant MQTT: " + args.ConnectResult.ReasonString);
             return Task.CompletedTask;
         };
 
         _client.DisconnectedAsync += args =>
         {
-            _logger.LogInformation("Disconnected from HA MQTT" + args.ReasonString);
+            _logger.LogInformation("Disconnected from HomeAssistant MQTT" + args.ReasonString);
             return Task.CompletedTask;
         };
     }

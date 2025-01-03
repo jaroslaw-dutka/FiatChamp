@@ -2,17 +2,17 @@ using FiatChamp.Ha.Model;
 
 namespace FiatChamp.Ha.Entities;
 
-public class HaSwitch : HaEntity
+public class HaSwitch : HaActionEntity<HaSwitch>
 {
     public bool IsOn { get; private set; }
 
-    public HaSwitch(IHaMqttClient mqttClient, HaDevice device, string name, Func<HaSwitch, Task> onSwitchCommand) : base("switch", mqttClient, device, name)
+    public HaSwitch(IHaMqttClient mqttClient, HaDevice device, string name, Func<HaSwitch, Task> action) : base("switch", mqttClient, device, name, action)
     {
         _ = mqttClient.SubscribeAsync(CommandTopic, async message =>
         {
             IsOn = message == "ON";
             await Task.Delay(100);
-            await onSwitchCommand.Invoke(this);
+            await action.Invoke(this);
             _ = PublishStateAsync();
         });
     }

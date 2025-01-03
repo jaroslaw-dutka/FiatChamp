@@ -13,11 +13,6 @@ public class FiatClientFake : IFiatClient
         await Task.Delay(1000, cancellationToken);
     }
 
-    public async Task SendCommandAsync(string vin, string command, string pin, string action)
-    {
-        await Task.Delay(5000);
-    }
-
     public Task<List<VehicleInfo>> GetVehiclesAsync()
     {
         var serializer = new DefaultJsonSerializer(JsonSerializerOptions.Default);
@@ -30,5 +25,16 @@ public class FiatClientFake : IFiatClient
                 Details = serializer.Deserialize<JsonObject>(File.OpenRead("./Mocks/details.json"))
             }
         });
+    }
+
+    public async Task SendCommandAsync(string vin, string command, string pin, string action)
+    {
+        await Task.Delay(5000);
+    }
+
+    public async Task<bool> TrySendCommandAsync(string vin, string command, string pin, string action)
+    {
+        await Task.Delay(5000);
+        return true;
     }
 }
