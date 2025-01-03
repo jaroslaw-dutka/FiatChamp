@@ -27,10 +27,10 @@ public static class FlurlExtensions
             .AwsSign(credentials, regionEndpoint, data)
             .PostJsonAsync(data);
 
-    public static async Task<T> DumpAsync<T>(this Task<T> resultTask, ILogger logger)
+    public static async Task<T> DumpResponseAsync<T>(this Task<T> resultTask, ILogger logger)
     {
         var result = await resultTask;
-        logger.LogDebug(result.Dump());
+        logger.LogDebug("Response: {dump}", result.Dump());
         return result;
     }
 }

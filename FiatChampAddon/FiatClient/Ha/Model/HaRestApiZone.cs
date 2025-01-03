@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using CoordinateSharp;
 
 namespace FiatChamp.Ha.Model;
 
@@ -22,7 +21,4 @@ public class HaRestApiZone
 
     [JsonPropertyName("friendly_name")]
     public string FriendlyName { get; set; } = null!;
-
-    [JsonIgnore]
-    public Coordinate Coordinate => new(Latitude, Longitude);
 }

@@ -36,7 +36,7 @@ public class CarContext
         };
     }
 
-    public async Task ProcessLocationAsync(Coordinate location, string zone)
+    public async Task ProcessLocationAsync(VehicleLocation location, string zone)
     {
         if (Location is null)
         {
@@ -50,8 +50,8 @@ public class CarContext
         Location.State = zone;
         Location.Attributes = new HaLocation
         {
-            Latitude = location.Latitude.ToDouble(),
-            Longitude = location.Longitude.ToDouble(),
+            Latitude = location.Latitude,
+            Longitude = location.Longitude,
             SourceType = "gps",
             GpsAccuracy = 2
         };

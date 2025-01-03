@@ -3,9 +3,12 @@ using FiatChamp.Fiat;
 using FiatChamp.Ha;
 using Flurl.Http;
 using System.Collections.Concurrent;
+using System.Text.Json;
 using FiatChamp.Extensions;
+using FiatChamp.Fiat.Entities;
 using Microsoft.Extensions.Options;
 using FiatChamp.Fiat.Model;
+using FiatChamp.Ha.Model;
 using Microsoft.Extensions.Logging;
 
 namespace FiatChamp.App
@@ -48,30 +51,35 @@ namespace FiatChamp.App
                 try
                 {
                     await FetchData(cancellationToken);
+                    _logger.LogInformation("Processing COMPLETED.");
                 }
                 catch (FlurlHttpException exception)
                 {
-                    _logger.LogWarning("Error connecting to the FIAT API.\nThis can happen from time to time. Retrying in {interval} minutes.", _appSettings.RefreshInterval);
-                    
-                    var responseTask = exception.Call?.Response?.GetStringAsync();
-                    var response = responseTask != null ? await responseTask : string.Empty;
-
-                    _logger.LogDebug(exception, "STATUS: {status}, MESSAGE: {message}, RESPONSE: {}", exception.StatusCode, exception.Message, response);
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                    {
+                        var responseTask = exception.Call?.Response?.GetStringAsync();
+                        var response = responseTask != null ? await responseTask : string.Empty;
+                        _logger.LogDebug(exception, "Processing FAILED. STATUS: {status}, MESSAGE: {message}, RESPONSE: {response}", exception.StatusCode, exception.Message, response);
+                    }
+                    else
+                        _logger.LogWarning("Processing FAILED. Error connecting to the FIAT API. This can happen from time to time.");
                 }
                 catch (Exception exception)
                 {
-                    _logger.LogError(exception, exception.Message);
+                    _logger.LogError(exception, "Processing FAILED");
                 }
-
-                _logger.LogInformation("Fetching COMPLETED. Next update in {delay} minutes.", _appSettings.RefreshInterval);
-
+                finally
+                {
+                    _logger.LogInformation("Next update in {delay} minutes.", _appSettings.RefreshInterval);
+                }
+                
                 WaitHandle.WaitAny([cancellationToken.WaitHandle, _forceLoopResetEvent], TimeSpan.FromMinutes(_appSettings.RefreshInterval));
             }
         }
 
         private async Task FetchData(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Now fetching new data...");
+            _logger.LogInformation("Fetching new data...");
 
             var config = await _haApiClient.GetConfigAsync();
             _logger.LogInformation("Using unit system: {unit}", config.UnitSystem.Dump());
@@ -80,10 +88,14 @@ namespace FiatChamp.App
             _logger.LogInformation("Convert km -> miles ? {shouldConvertKmToMiles}", shouldConvertKmToMiles);
 
             var states = await _haApiClient.GetStatesAsync();
+            var zones = states
+                .Where(state => state.EntityId.StartsWith("zone."))
+                .Select(state => state.Attributes.Deserialize<HaRestApiZone>()!)
+                .ToList();
 
             foreach (var vehicleInfo in await _fiatClient.GetVehiclesAsync())
             {
-                _logger.LogInformation("FOUND CAR: {vin}", vehicleInfo.Vehicle.Vin);
+                _logger.LogInformation("Processing CAR: {vin}", vehicleInfo.Vehicle.Vin);
 
                 if (_appSettings.AutoRefreshBattery) 
                     await TrySendCommand(FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
@@ -98,29 +110,39 @@ namespace FiatChamp.App
                 }
 
                 // Location
-                var location = new Coordinate(vehicleInfo.Location.Latitude, vehicleInfo.Location.Longitude);
-                var zones = states.GetZones().OrderByDistance(location);
-                var currentZone = zones.FirstOrDefault()?.FriendlyName ?? _appSettings.CarUnknownLocation;
-                await context.ProcessLocationAsync(location, currentZone);
+                var currentZone = GetZone(zones, vehicleInfo.Location);
+                await context.ProcessLocationAsync(vehicleInfo.Location, currentZone);
 
                 // Details
                 await context.ProcessDetailsAsync(vehicleInfo.Details, shouldConvertKmToMiles);
                 
                 // Buttons
+                await BindButton(context, "Blink", FiatCommands.HBLF, vehicleInfo.Vehicle.Vin);
+                await BindButton(context, "Charge", FiatCommands.CNOW, vehicleInfo.Vehicle.Vin);
+                await BindButton(context, "UpdateAll", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "UpdateLocation", FiatCommands.VF, vehicleInfo.Vehicle.Vin);
                 await BindButton(context, "UpdateBattery", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
-                await BindButton(context, "DeepRefresh", FiatCommands.DEEPREFRESH, vehicleInfo.Vehicle.Vin);
-                await BindButton(context, "Blink", FiatCommands.HBLF, vehicleInfo.Vehicle.Vin);
-                await BindButton(context, "ChargeNOW", FiatCommands.CNOW, vehicleInfo.Vehicle.Vin);
 
                 // Switches
+                await BindSwitch(context, "Doors", FiatCommands.RDL, FiatCommands.RDU, vehicleInfo.Vehicle.Vin);
+                await BindSwitch(context, "Hvac", FiatCommands.ROPRECOND, FiatCommands.ROPRECOND_OFF, vehicleInfo.Vehicle.Vin);
                 await BindSwitch(context, "Trunk", FiatCommands.ROTRUNKUNLOCK, FiatCommands.ROTRUNKLOCK, vehicleInfo.Vehicle.Vin);
-                await BindSwitch(context, "HVAC", FiatCommands.ROPRECOND, FiatCommands.ROPRECOND_OFF, vehicleInfo.Vehicle.Vin);
-                await BindSwitch(context, "DoorLock", FiatCommands.RDL, FiatCommands.RDU, vehicleInfo.Vehicle.Vin);
 
                 // Timestamp
                 await context.ProcessTimestampAsync();
             }
+        }
+
+        private string GetZone(IReadOnlyList<HaRestApiZone> zones, VehicleLocation location)
+        {
+            var coordinate = new Coordinate(location.Latitude, location.Longitude);
+            var zone = zones
+                .Select(zone => new { Zone = zone, DistanceToZone = new Coordinate(zone.Latitude, zone.Longitude).Get_Distance_From_Coordinate(coordinate).Meters })
+                .Where(item => item.DistanceToZone <= item.Zone.Radius)
+                .OrderBy(item => item.DistanceToZone)
+                .Select(i => i.Zone)
+                .FirstOrDefault();
+            return zone?.FriendlyName ?? _appSettings.CarUnknownLocation;
         }
 
         private async Task BindButton(CarContext context, string name, FiatCommand command, string vin) => await context.ProcessButtonAsync(name, async (entity, state) =>
