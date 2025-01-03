@@ -46,6 +46,9 @@ namespace FiatChamp.App
             while (!cancellationToken.IsCancellationRequested)
             {
                 await TryFetchData(cancellationToken);
+
+                _logger.LogInformation("Fetching COMPLETED. Next update in {delay} minutes.", _appSettings.RefreshInterval);
+
                 WaitHandle.WaitAny([cancellationToken.WaitHandle, _forceLoopResetEvent], TimeSpan.FromMinutes(_appSettings.RefreshInterval));
             }
         }
@@ -70,8 +73,6 @@ namespace FiatChamp.App
             {
                 _logger.LogError(e, e.Message);
             }
-
-            _logger.LogInformation("Fetching COMPLETED. Next update in {delay} minutes.", _appSettings.RefreshInterval);
         }
 
         private async Task FetchData(CancellationToken cancellationToken)

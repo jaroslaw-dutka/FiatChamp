@@ -10,16 +10,11 @@ public class HaSwitch : HaEntity
     {
         _ = mqttClient.SubscribeAsync(CommandTopic, async message =>
         {
-            SwitchTo(message == "ON");
+            IsOn = message == "ON";
             await Task.Delay(100);
             await onSwitchCommand.Invoke(this);
+            _ = PublishStateAsync();
         });
-    }
-
-    public void SwitchTo(bool onOrOff)
-    {
-        IsOn = onOrOff;
-        _ = PublishStateAsync();
     }
 
     public override async Task PublishStateAsync() =>
